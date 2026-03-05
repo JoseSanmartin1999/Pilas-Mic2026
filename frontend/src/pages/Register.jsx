@@ -76,7 +76,8 @@ const Register = () => {
             alert("Registro exitoso");
         } catch (err) {
             console.error("Error en registro", err.response?.data || err.message);
-            alert("Error en registro: " + (err.response?.data?.error?.message || err.message));
+            const serverMsg = err.response?.data?.message || err.response?.data?.error?.message || err.message;
+            alert("Error en registro: " + serverMsg);
         }
     };
 

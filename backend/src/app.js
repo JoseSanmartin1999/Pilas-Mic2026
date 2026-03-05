@@ -14,4 +14,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/users', userRoutes);
 
+// Middleware Global de Errores para que siempre retorne JSON y no HTML (Ej. cuando falla un middleware o DB)
+app.use((err, req, res, next) => {
+    console.error("Error global interceptado:", err);
+    res.status(err.status || 500).json({
+        message: "Error interno del servidor",
+        error: err.message || "Error desconocido",
+        detalles: process.env.NODE_ENV === 'development' ? err : undefined
+    });
+});
+
 export default app;
