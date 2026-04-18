@@ -124,3 +124,38 @@ const enrichUserProfileData = (user) => {
         tutorias: DEFAULT_TUTORIAS
     };
 };
+
+export const getAllMentors = async (req, res) => {
+    try {
+        const { exclude } = req.query;
+        let query = `
+            SELECT u.id, u.full_name AS nombre, '' AS apellidos, u.career, u.profile_photo_url,
+            GROUP_CONCAT(s.name SEPARATOR ', ') AS materias_nombres
+            FROM Users u
+            LEFT JOIN Mentor_Subjects ms ON u.id = ms.mentor_id
+            LEFT JOIN Subjects s ON ms.subject_id = s.id
+            WHERE u.role = 'MENTOR'
+        `;
+        const queryParams = [];
+
+        if (exclude) {
+            query += ` AND u.id != ? `;
+            queryParams.push(exclude);
+        }
+
+        query += ` GROUP BY u.id`;
+
+        const [mentors] = await db.query(query, queryParams);
+
+        const formattedMentors = mentors.map(m => ({
+            ...m,
+            score: 4.5, // Mock the score if it's missing in DB
+            materias: m.materias_nombres ? m.materias_nombres.split(', ') : []
+        }));
+
+        res.json(formattedMentors);
+    } catch (error) {
+        console.error("Error al obtener mentores:", error);
+        res.status(500).json({ error: "Error al obtener mentores" });
+    }
+};
