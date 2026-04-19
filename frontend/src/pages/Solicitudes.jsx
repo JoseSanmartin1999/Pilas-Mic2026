@@ -5,8 +5,10 @@ const Solicitudes = () => {
     const [mentorships, setMentorships] = useState([]);
     const [loading, setLoading] = useState(true);
     const [reprogrammingId, setReprogrammingId] = useState(null);
+    const [acceptingId, setAcceptingId] = useState(null);
     const [newDate, setNewDate] = useState('');
     const [newTime, setNewTime] = useState('');
+    const [meetingData, setMeetingData] = useState({ meeting_link: '', zoom_code: '', zoom_password: '' });
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -28,14 +30,15 @@ const Solicitudes = () => {
         }
     };
 
-    const handleAction = async (id, status, scheduled_date = null) => {
+    const handleAction = async (id, status, extraData = {}) => {
         try {
-            const payload = { status };
-            if (scheduled_date) payload.scheduled_date = scheduled_date;
+            const payload = { status, ...extraData };
             
             await axios.put(`http://localhost:3000/api/mentorships/${id}`, payload);
             alert(`Tutoría ${status === 'ACEPTADA' ? 'aceptada' : status === 'RECHAZADA' ? 'declinada' : 'reprogramada'} con éxito`);
             setReprogrammingId(null);
+            setAcceptingId(null);
+            setMeetingData({ meeting_link: '', zoom_code: '', zoom_password: '' });
             fetchMentorships();
         } catch (err) {
             alert("Error al procesar la acción");
@@ -86,17 +89,32 @@ const Solicitudes = () => {
                                             </ul>
                                         </div>
 
-                                        <p className="text-gray-600 italic">
-                                            Propuesto para el: <span className="font-bold text-[#1a3a5a]">{date.toLocaleDateString()}</span> a las <span className="font-bold text-[#1a3a5a]">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        </p>
+                                        <div className="flex flex-wrap gap-4 text-gray-600 italic">
+                                            <p>
+                                                Propuesto para el: <span className="font-bold text-[#1a3a5a]">{date.toLocaleDateString()}</span> a las <span className="font-bold text-[#1a3a5a]">{date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            </p>
+                                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-lg not-italic">
+                                                <span className="text-xs font-black uppercase text-[#1a3a5a] tracking-tighter">Modalidad:</span>
+                                                <span className="text-xs font-bold text-gray-700">
+                                                    {m.modality === 'Presencial' ? `📍 Presencial (${m.meeting_place || 'TBD'})` : `💻 Online (${m.platform || 'TBD'})`}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col gap-3 w-full md:w-56">
                                         <button 
-                                            onClick={() => handleAction(m.id, 'ACEPTADA')}
+                                            onClick={() => {
+                                                if (m.modality === 'Presencial') {
+                                                    handleAction(m.id, 'ACEPTADA');
+                                                } else {
+                                                    setAcceptingId(acceptingId === m.id ? null : m.id);
+                                                    setReprogrammingId(null);
+                                                }
+                                            }}
                                             className="w-full py-4 bg-[#1a3a5a] text-[#ffcc00] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:shadow-[#1a3a5a]/20 hover:bg-[#112740] transition-all"
                                         >
-                                            Aceptar
+                                            {m.modality === 'Presencial' ? 'Aceptar' : 'Configurar y Aceptar'}
                                         </button>
                                         
                                         <button 
@@ -131,11 +149,67 @@ const Solicitudes = () => {
                                             <button 
                                                 onClick={() => {
                                                     if (!newDate || !newTime) return alert("Selecciona fecha y hora");
-                                                    handleAction(m.id, 'PENDIENTE', `${newDate}T${newTime}:00`);
+                                                    handleAction(m.id, 'PENDIENTE', { scheduled_date: `${newDate}T${newTime}:00` });
                                                 }}
                                                 className="bg-[#ffcc00] text-white font-black py-3 rounded-2xl uppercase text-[10px] tracking-widest hover:bg-yellow-500 transition-all shadow-md"
                                             >
                                                 Confirmar Nueva Fecha
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {acceptingId === m.id && (
+                                    <div className="mt-8 pt-8 border-t border-dashed border-gray-200 animate-in slide-in-from-top duration-300">
+                                        <h4 className="text-[10px] font-black text-[#1a3a5a] uppercase tracking-widest mb-4">Detalles de la Reunión ({m.platform})</h4>
+                                        <div className="space-y-4">
+                                            {(m.platform === 'Meet' || m.platform === 'Teams') && (
+                                                <div>
+                                                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Link de la Tutoría</label>
+                                                    <input 
+                                                        type="url" 
+                                                        placeholder="https://meet.google.com/..."
+                                                        className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                        value={meetingData.meeting_link}
+                                                        onChange={(e) => setMeetingData({ ...meetingData, meeting_link: e.target.value })}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {m.platform === 'Zoom' && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Código de la Reunión</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="ID de la reunión"
+                                                            className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                            value={meetingData.zoom_code}
+                                                            onChange={(e) => setMeetingData({ ...meetingData, zoom_code: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Contraseña (Opcional)</label>
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="Clave de acceso"
+                                                            className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                            value={meetingData.zoom_password}
+                                                            onChange={(e) => setMeetingData({ ...meetingData, zoom_password: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <button 
+                                                onClick={() => {
+                                                    if (m.platform === 'Zoom' && !meetingData.zoom_code) return alert("Por favor ingresa el código de reunión");
+                                                    if ((m.platform === 'Meet' || m.platform === 'Teams') && !meetingData.meeting_link) return alert("Por favor ingresa el link de la reunión");
+                                                    handleAction(m.id, 'ACEPTADA', meetingData);
+                                                }}
+                                                className="w-full bg-[#1a3a5a] text-[#ffcc00] font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-[#112740] transition-all shadow-lg"
+                                            >
+                                                Confirmar y Aceptar Tutoría
                                             </button>
                                         </div>
                                     </div>

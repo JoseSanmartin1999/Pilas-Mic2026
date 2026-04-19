@@ -9,7 +9,15 @@ const Profile = () => {
 
   // Estado para Pactar Tutoría
   const [showMentorshipModal, setShowMentorshipModal] = useState(false);
-  const [mentorshipData, setMentorshipData] = useState({ subject_id: '', date: '', time: '', objectives: '' });
+  const [mentorshipData, setMentorshipData] = useState({ 
+    subject_id: '', 
+    date: '', 
+    time: '', 
+    objectives: '', 
+    modality: 'Presencial', 
+    meeting_place: '', 
+    platform: '' 
+  });
 
   // Estados para la edición (RF#003)
   const [showModal, setShowModal] = useState(false);
@@ -61,13 +69,24 @@ const Profile = () => {
         apprentice_id: currentUser.id,
         subject_id: mentorshipData.subject_id,
         scheduled_date,
-        objectives: mentorshipData.objectives
+        objectives: mentorshipData.objectives,
+        modality: mentorshipData.modality,
+        meeting_place: mentorshipData.modality === 'Presencial' ? mentorshipData.meeting_place : null,
+        platform: mentorshipData.modality === 'Online' ? mentorshipData.platform : null
       };
 
       await axios.post('http://localhost:3000/api/mentorships', payload);
       alert("¡Tutoría solicitada exitosamente!");
       setShowMentorshipModal(false);
-      setMentorshipData({ subject_id: '', date: '', time: '', objectives: '' });
+      setMentorshipData({ 
+        subject_id: '', 
+        date: '', 
+        time: '', 
+        objectives: '', 
+        modality: 'Presencial', 
+        meeting_place: '', 
+        platform: '' 
+      });
     } catch (err) {
       console.error(err);
       alert("Hubo un error al solicitar la tutoría");
@@ -313,6 +332,52 @@ const Profile = () => {
                   className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-medium text-gray-600 text-sm resize-none" 
                   placeholder="- Ecuaciones de Newton&#10;- Dinámica y cinemática" 
                 />
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">¿Modalidad de Tutoría?</label>
+                <div className="flex gap-4">
+                  <label className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all cursor-pointer font-bold text-xs ${mentorshipData.modality === 'Presencial' ? 'border-[#ffcc00] bg-yellow-50 text-[#1a3a5a]' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                    <input type="radio" name="modality" value="Presencial" checked={mentorshipData.modality === 'Presencial'} onChange={(e) => setMentorshipData({ ...mentorshipData, modality: e.target.value })} className="hidden" />
+                    <span>📍 Presencial</span>
+                  </label>
+                  <label className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-2xl border-2 transition-all cursor-pointer font-bold text-xs ${mentorshipData.modality === 'Online' ? 'border-[#ffcc00] bg-yellow-50 text-[#1a3a5a]' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                    <input type="radio" name="modality" value="Online" checked={mentorshipData.modality === 'Online'} onChange={(e) => setMentorshipData({ ...mentorshipData, modality: e.target.value })} className="hidden" />
+                    <span>💻 Online</span>
+                  </label>
+                </div>
+
+                {mentorshipData.modality === 'Presencial' && (
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Lugar de Reunión</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Ej: Biblioteca central, Cubículo 5..."
+                      value={mentorshipData.meeting_place} 
+                      onChange={(e) => setMentorshipData({ ...mentorshipData, meeting_place: e.target.value })} 
+                      className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a]" 
+                    />
+                  </div>
+                )}
+
+                {mentorshipData.modality === 'Online' && (
+                  <div className="animate-in slide-in-from-top-2 duration-300">
+                    <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Plataforma</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['Meet', 'Zoom', 'Teams'].map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setMentorshipData({ ...mentorshipData, platform: p })}
+                          className={`py-3 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all ${mentorshipData.platform === p ? 'bg-[#1a3a5a] text-[#ffcc00] shadow-lg scale-105' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button type="submit" className="w-full py-5 bg-[#1a3a5a] text-[#ffcc00] rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-xl hover:shadow-[#1a3a5a]/20 hover:scale-[1.02] transition-all">

@@ -1,7 +1,7 @@
 import db from '../config/db.js';
 
 export const createMentorship = async (req, res) => {
-    const { mentor_id, apprentice_id, subject_id, scheduled_date, objectives } = req.body;
+    const { mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality, meeting_place, platform } = req.body;
 
     if (!mentor_id || !apprentice_id || !subject_id || !scheduled_date) {
         return res.status(400).json({ error: "Faltan campos obligatorios" });
@@ -9,11 +9,11 @@ export const createMentorship = async (req, res) => {
 
     try {
         const query = `
-            INSERT INTO Mentorships (mentor_id, apprentice_id, subject_id, scheduled_date, objectives, status)
-            VALUES (?, ?, ?, ?, ?, 'PENDIENTE')
+            INSERT INTO Mentorships (mentor_id, apprentice_id, subject_id, scheduled_date, objectives, status, modality, meeting_place, platform)
+            VALUES (?, ?, ?, ?, ?, 'PENDIENTE', ?, ?, ?)
         `;
         
-        const [result] = await db.query(query, [mentor_id, apprentice_id, subject_id, scheduled_date, objectives]);
+        const [result] = await db.query(query, [mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality || 'Presencial', meeting_place, platform]);
         
         res.status(201).json({
             message: "Tutoría solicitada exitosamente",
@@ -36,6 +36,12 @@ export const getMentorshipsByUser = async (req, res) => {
                 m.status,
                 m.mentor_id,
                 m.apprentice_id,
+                m.modality,
+                m.meeting_place,
+                m.platform,
+                m.meeting_link,
+                m.zoom_code,
+                m.zoom_password,
                 mentor.full_name as mentor_name,
                 apprentice.full_name as apprentice_name,
                 s.name as subject_name
@@ -43,7 +49,7 @@ export const getMentorshipsByUser = async (req, res) => {
             JOIN Users mentor ON m.mentor_id = mentor.id
             JOIN Users apprentice ON m.apprentice_id = apprentice.id
             JOIN Subjects s ON m.subject_id = s.id
-            WHERE (m.mentor_id = ? OR m.apprentice_id = ?) AND m.status = 'PENDIENTE'
+            WHERE (m.mentor_id = ? OR m.apprentice_id = ?)
             ORDER BY m.created_at DESC
         `;
         const [rows] = await db.query(query, [userId, userId]);
@@ -56,19 +62,38 @@ export const getMentorshipsByUser = async (req, res) => {
 
 export const updateMentorship = async (req, res) => {
     const { id } = req.params;
-    const { status, scheduled_date } = req.body;
+    const { status, scheduled_date, meeting_link, zoom_code, zoom_password } = req.body;
     try {
         let query = "UPDATE Mentorships SET ";
         const params = [];
+        const updates = [];
+
         if (status) {
-            query += "status = ?, apprentice_notified = 0 "; // Reset notifications when status changes
+            updates.push("status = ?, apprentice_notified = 0");
             params.push(status);
         }
         if (scheduled_date) {
-            query += (status ? ", " : "") + "scheduled_date = ? ";
+            updates.push("scheduled_date = ?");
             params.push(scheduled_date);
         }
-        query += "WHERE id = ?";
+        if (meeting_link) {
+            updates.push("meeting_link = ?");
+            params.push(meeting_link);
+        }
+        if (zoom_code) {
+            updates.push("zoom_code = ?");
+            params.push(zoom_code);
+        }
+        if (zoom_password) {
+            updates.push("zoom_password = ?");
+            params.push(zoom_password);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: "No hay campos para actualizar" });
+        }
+
+        query += updates.join(", ") + " WHERE id = ?";
         params.push(id);
 
         await db.query(query, params);

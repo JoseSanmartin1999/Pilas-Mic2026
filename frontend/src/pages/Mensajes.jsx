@@ -15,9 +15,14 @@ const Mensajes = () => {
     const fetchResponses = async () => {
         try {
             const res = await axios.get(`http://localhost:3000/api/mentorships/user/${currentUser.id}`);
-            // Show requests where I am the apprentice (notifications of status changes)
-            const myRequests = res.data.filter(m => m.apprentice_id === currentUser.id);
-            setResponses(myRequests);
+            // Show all mentorships where user is involved. 
+            // - Apprentice shows everything (notifications)
+            // - Mentor shows processed ones (history)
+            const myResponses = res.data.filter(m => 
+                (m.apprentice_id === currentUser.id) || 
+                (m.mentor_id === currentUser.id && m.status !== 'PENDIENTE')
+            );
+            setResponses(myResponses);
         } catch (err) {
             console.error("Error fetching responses:", err);
         } finally {
@@ -131,14 +136,94 @@ const Mensajes = () => {
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm text-center">
-                                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Fecha de Sesión</div>
-                                        <div className="text-lg font-black text-[#1a3a5a]">{new Date(selectedMessage.scheduled_date).toLocaleDateString()}</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-xl">📅</div>
+                                        <div className="text-left">
+                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Fecha de Sesión</div>
+                                            <div className="text-base font-black text-[#1a3a5a]">{new Date(selectedMessage.scheduled_date).toLocaleDateString()}</div>
+                                        </div>
                                     </div>
-                                    <div className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm text-center">
-                                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Hora de Sesión</div>
-                                        <div className="text-lg font-black text-[#1a3a5a]">{new Date(selectedMessage.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                    <div className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-xl">⏰</div>
+                                        <div className="text-left">
+                                            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Hora de Sesión</div>
+                                            <div className="text-base font-black text-[#1a3a5a]">{new Date(selectedMessage.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* NUEVA SECCIÓN: DETALLES DE MODALIDAD */}
+                                <div className="p-8 bg-white rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden group">
+                                    <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <span className="text-6xl">{selectedMessage.modality === 'Presencial' ? '📍' : '💻'}</span>
+                                    </div>
+                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 bg-pilas-gold rounded-full"></span>
+                                        Detalles de la Cita
+                                    </h4>
+                                    
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Modalidad</span>
+                                            <span className="bg-gray-50 px-4 py-1.5 rounded-full text-xs font-black text-[#1a3a5a] border border-gray-100 uppercase tracking-tighter">
+                                                {selectedMessage.modality === 'Presencial' ? '📍 Presencial' : '💻 Online'}
+                                            </span>
+                                        </div>
+
+                                        {selectedMessage.modality === 'Presencial' && (
+                                            <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Lugar de Reunión</span>
+                                                <span className="text-sm font-black text-[#1a3a5a]">{selectedMessage.meeting_place || 'Por confirmar'}</span>
+                                            </div>
+                                        )}
+
+                                        {selectedMessage.modality === 'Online' && (
+                                            <div className="space-y-4 border-t border-gray-50 pt-4">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Plataforma</span>
+                                                    <span className="text-sm font-black text-[#1a3a5a]">{selectedMessage.platform}</span>
+                                                </div>
+
+                                                {selectedMessage.status === 'ACEPTADA' ? (
+                                                    <div className="pt-4">
+                                                        {selectedMessage.platform === 'Zoom' ? (
+                                                            <div className="bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100">
+                                                                <div className="flex justify-between items-center text-xs">
+                                                                    <span className="font-bold text-gray-400">ID de Reunión:</span>
+                                                                    <span className="font-black text-[#1a3a5a]">{selectedMessage.zoom_code || 'No proporcionado'}</span>
+                                                                </div>
+                                                                {selectedMessage.zoom_password && (
+                                                                    <div className="flex justify-between items-center text-xs">
+                                                                        <span className="font-bold text-gray-400">Contraseña:</span>
+                                                                        <span className="font-black text-[#1a3a5a]">{selectedMessage.zoom_password}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            selectedMessage.meeting_link ? (
+                                                                <a 
+                                                                    href={selectedMessage.meeting_link.startsWith('http') ? selectedMessage.meeting_link : `https://${selectedMessage.meeting_link}`}
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center justify-center gap-3 w-full py-4 bg-[#1a3a5a] text-[#ffcc00] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:shadow-[#1a3a5a]/20 hover:scale-[1.02] transition-all"
+                                                                >
+                                                                    <span>🚀 Unirse a la Reunión</span>
+                                                                </a>
+                                                            ) : (
+                                                                <div className="text-center p-4 bg-yellow-50 text-yellow-700 text-xs font-bold rounded-2xl border border-yellow-100">
+                                                                    El tutor aún no ha proporcionado el enlace.
+                                                                </div>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center p-4 bg-gray-50 text-gray-400 text-[10px] font-bold rounded-2xl border border-dashed border-gray-200 uppercase tracking-widest">
+                                                        Los detalles de acceso aparecerán cuando se acepte la tutoría
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
