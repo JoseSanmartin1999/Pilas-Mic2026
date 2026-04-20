@@ -1,6 +1,6 @@
 import express from 'express';
 import { getUserProfile, updateUserProfile } from '../controllers/userController.js';
-import upload from '../middleware/upload.js'; // Middleware para procesar la imagen
+import { upload } from '../config/cloudinary.js';
 
 const router = express.Router();
 
