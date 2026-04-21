@@ -7,11 +7,7 @@ const DEFAULT_BADGES = [
     { name: 'Primeros Pasos', image_url: 'https://cdn-icons-png.flaticon.com/512/3585/3585145.png' }
 ];
 
-// Mock de tutorías programadas
-const DEFAULT_TUTORIAS = [
-    { id: 1, fecha: '2026-03-10', hora: '14:00', materia: 'Física I', estudiante: 'Juan Pérez' },
-    { id: 2, fecha: '2026-03-12', hora: '10:00', materia: 'Cálculo Diferencial', estudiante: 'Ana Gómez' }
-];
+
 
 export const getUserProfile = async (req, res) => {
     const { id: userId } = req.params;
@@ -20,7 +16,7 @@ export const getUserProfile = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
-        const userProfile = enrichUserProfileData(user);
+        const userProfile = await enrichUserProfileData(user);
         return res.json(userProfile);
     } catch (error) {
         console.error(`Error al obtener perfil del usuario con ID ${userId}:`, error);
@@ -116,12 +112,39 @@ const findUserById = async (userId) => {
     return user;
 };
 
-const enrichUserProfileData = (user) => {
+const enrichUserProfileData = async (user) => {
+    let tutorias = [];
+    try {
+        const query = `
+            SELECT 
+                m.id, 
+                m.scheduled_date, 
+                s.name as materia, 
+                m.modality, 
+                m.meeting_place, 
+                m.platform,
+                m.meeting_link,
+                m.zoom_code,
+                m.zoom_password
+            FROM Mentorships m
+            JOIN Subjects s ON m.subject_id = s.id
+            WHERE (m.mentor_id = ? OR m.apprentice_id = ?) 
+              AND m.scheduled_date >= NOW() 
+              AND m.is_deleted = 0 
+              AND m.status NOT IN ('RECHAZADA', 'CANCELADA')
+            ORDER BY m.scheduled_date ASC
+        `;
+        const [rows] = await db.query(query, [user.id, user.id]);
+        tutorias = rows;
+    } catch (e) {
+        console.error("Error fetching upcoming mentorships for profile:", e.message);
+    }
+
     return {
         ...user,
         score: DEFAULT_SCORE,
         badges: DEFAULT_BADGES,
-        tutorias: DEFAULT_TUTORIAS
+        tutorias
     };
 };
 

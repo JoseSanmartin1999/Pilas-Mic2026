@@ -203,17 +203,42 @@ const Profile = () => {
             <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center mb-5">
               <span className="w-2 h-4 bg-gradient-to-b from-[#4ade80] to-green-600 rounded-full mr-3"></span> Próximas Tutorías
             </h4>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {user.tutorias?.length > 0 ? (
-                user.tutorias.map((t, idx) => (
-                  <div key={idx} className="p-4 border-l-4 border-[#ffcc00] bg-gray-50 rounded-2xl flex flex-col justify-center">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-xs font-bold text-[#1a3a5a]">{t.fecha}</p>
-                      <p className="text-[10px] font-black text-gray-800 bg-white px-2 py-1 rounded shadow-sm border border-gray-100">{t.hora}</p>
+                user.tutorias.map((t, idx) => {
+                  const dateObj = new Date(t.scheduled_date);
+                  const fecha = dateObj.toLocaleDateString();
+                  const hora = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  
+                  return (
+                    <div key={idx} className="p-5 border-l-4 border-pilas-gold bg-gray-50 rounded-2xl flex flex-col space-y-3 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-center">
+                        <p className="text-xs font-black text-[#1a3a5a]">{fecha}</p>
+                        <p className="text-[10px] font-black text-gray-800 bg-white px-3 py-1 rounded-lg shadow-sm border border-gray-100">{hora}</p>
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-black text-[#1a3a5a] uppercase truncate mb-1">{t.materia}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                            {t.modality === 'Presencial' ? '📍 ' + (t.meeting_place || 'Lugar por definir') : '💻 ' + (t.platform || 'Online')}
+                          </span>
+                        </div>
+                        {t.modality === 'Online' && (t.meeting_link || t.zoom_code) && (
+                          <div className="mt-2 pt-2 border-t border-gray-200/50">
+                            <a 
+                              href={t.meeting_link?.startsWith('http') ? t.meeting_link : `https://${t.meeting_link}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-[9px] font-black text-pilas-gold hover:text-yellow-600 uppercase tracking-widest flex items-center gap-1"
+                            >
+                              🚀 Unirse a sesión
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-[11px] font-bold text-gray-500 uppercase truncate">{t.materia}</p>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-[10px] font-bold text-gray-400 text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 uppercase tracking-widest">Sin sesiones</p>
               )}
