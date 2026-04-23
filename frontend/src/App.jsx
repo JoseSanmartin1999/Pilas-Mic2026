@@ -1,5 +1,5 @@
-import React, { useState } from 'react'; // Necesario para manejar el estado de sesión
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -8,7 +8,49 @@ import BuscarTutor from './pages/BuscarTutor';
 import Profile from './pages/Profile';
 import Mensajes from './pages/Mensajes';
 import Solicitudes from './pages/Solicitudes';
+import MiTutoria from './pages/MiTutoria';
 import Footer from './components/Footer';
+
+// Componente interno para poder usar useLocation (debe estar dentro de <Router>)
+const AppContent = ({ auth, setAuth }) => {
+  const location = useLocation();
+  // En el workspace no queremos footer ni scroll global
+  const isWorkspace = location.pathname.startsWith('/mi-tutoria');
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setAuth({ isLogged: false, role: 'APRENDIZ' });
+    window.location.href = '/login';
+  };
+
+  return (
+    <div className={`flex flex-col ${isWorkspace ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+      <Navbar isAuthenticated={auth.isLogged} userRole={auth.role} onLogout={handleLogout} />
+
+      <main className={`flex-grow ${isWorkspace ? 'overflow-hidden' : ''}`}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login setAuth={setAuth} />} />
+          <Route path="/registro" element={<Register />} />
+          <Route path="/buscar" element={<BuscarTutor />} />
+          {/* Mantenemos el parámetro :id para cargar perfiles específicos
+              Ejemplo: /profile/1
+          */}
+          <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/mensajes" element={<Mensajes />} />
+          <Route path="/solicitudes" element={<Solicitudes />} />
+          <Route path="/mi-tutoria" element={<MiTutoria />} />
+
+          {/* Ruta comodín para manejar errores 404 */}
+          <Route path="*" element={<div className="text-center py-20">404 - Página no encontrada</div>} />
+        </Routes>
+      </main>
+
+      {/* El footer no aparece en el workspace tipo Slack */}
+      {!isWorkspace && <Footer />}
+    </div>
+  );
+};
 
 function App() {
   const [auth, setAuth] = useState(() => {
@@ -21,37 +63,9 @@ function App() {
     return { isLogged: false, role: 'APRENDIZ' };
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    setAuth({ isLogged: false, role: 'APRENDIZ' });
-    window.location.href = '/login';
-  };
-
   return (
     <Router>
-      <div className="flex flex-col min-h-screen">
-        <Navbar isAuthenticated={auth.isLogged} userRole={auth.role} onLogout={handleLogout} />
-
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login setAuth={setAuth} />} />
-            <Route path="/registro" element={<Register />} />
-            <Route path="/buscar" element={<BuscarTutor />} />
-             {/* Mantenemos el parámetro :id para cargar perfiles específicos [cite: 105, 107]
-                Ejemplo: /profile/1
-             */}
-             <Route path="/profile/:id" element={<Profile />} />
-             <Route path="/mensajes" element={<Mensajes />} />
-             <Route path="/solicitudes" element={<Solicitudes />} />
-
-            {/* Ruta comodín para manejar errores 404 (Opcional) */}
-            <Route path="*" element={<div className="text-center py-20">404 - Página no encontrada</div>} />
-          </Routes>
-        </main>
-
-        <Footer />
-      </div>
+      <AppContent auth={auth} setAuth={setAuth} />
     </Router>
   );
 }

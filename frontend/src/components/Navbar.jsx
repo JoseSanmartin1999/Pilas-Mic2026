@@ -50,6 +50,9 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
                         {isAuthenticated ? (
                             <>
                                 <Link to="/buscar" className="nav-link">Busca Tutor</Link>
+                                <Link to="/mi-tutoria" className="nav-link relative">
+                                    MiTutoría
+                                </Link>
                                 <Link to="/mensajes" className="nav-link relative">
                                     Bandeja de Entrada
                                     <Badge count={counts.newInboxMessages} />
