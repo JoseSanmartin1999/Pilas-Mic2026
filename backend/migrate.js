@@ -2,7 +2,10 @@ import db from './src/config/db.js';
 
 const MIGRATIONS = [
     { query: 'ALTER TABLE Users ADD COLUMN bio TEXT;', column: 'bio' },
-    { query: 'ALTER TABLE Users ADD COLUMN profile_photo_url VARCHAR(500);', column: 'profile_photo_url' }
+    { query: 'ALTER TABLE Users ADD COLUMN profile_photo_url VARCHAR(500);', column: 'profile_photo_url' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN subject_id INT;', column: 'subject_id' },
+    { query: 'ALTER TABLE Mentorships ADD CONSTRAINT fk_mentorship_subject FOREIGN KEY (subject_id) REFERENCES Subjects(id);', column: 'fk_mentorship_subject' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN apprentice_notified BOOLEAN DEFAULT 0;', column: 'apprentice_notified' }
 ];
 
 async function executeMigrations() {

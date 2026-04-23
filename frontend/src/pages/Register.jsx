@@ -36,7 +36,7 @@ const Register = () => {
 
     const validatePassword = (password) => {
         // Al menos 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial
-        const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.#])[A-Za-z\d@$!%*?&.#]{8,}$/;
         return regex.test(password);
     };
 
@@ -44,7 +44,7 @@ const Register = () => {
         e.preventDefault();
 
         if (!validatePassword(formData.password)) {
-            alert("La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&).");
+            alert("La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&.#).");
             return;
         }
 
@@ -76,7 +76,8 @@ const Register = () => {
             alert("Registro exitoso");
         } catch (err) {
             console.error("Error en registro", err.response?.data || err.message);
-            alert("Error en registro: " + (err.response?.data?.error?.message || err.message));
+            const serverMsg = err.response?.data?.message || err.response?.data?.error?.message || err.message;
+            alert("Error en registro: " + serverMsg);
         }
     };
 
