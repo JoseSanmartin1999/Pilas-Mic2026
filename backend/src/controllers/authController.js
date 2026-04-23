@@ -24,9 +24,10 @@ export const register = async (req, res) => {
     const profile_photo_url = req.file ? req.file.path : null;
 
     // Conexión para transacción (asegura que se guarde todo o nada)
-    const connection = await db.getConnection();
+    let connection;
 
     try {
+        connection = await db.getConnection();
         await connection.beginTransaction();
 
         // 1. Encriptar contraseña (Seguridad RNF1)
@@ -51,10 +52,8 @@ export const register = async (req, res) => {
         // 3. Si es Mentor, registrar las materias de la malla seleccionadas
         if (role === 'MENTOR' && selectedSubjects && selectedSubjects.length > 0) {
             const mentorSubjectsData = selectedSubjects.map(subjectId => [userId, subjectId]);
-            // El error 'foreign key constraint fails' dice que la tabla actual esperaba 'category_id'.
-            // Vamos a insertarlo como 'subject_id' si la base de datos lo soporta, o 'category_id' según la estructura de Pill-Mic.
             await connection.query(
-                'INSERT INTO Mentor_Subjects (mentor_id, subject_id) VALUES ?', // <- cambiado category_id a subject_id
+                'INSERT INTO Mentor_Subjects (mentor_id, subject_id) VALUES ?',
                 [mentorSubjectsData]
             );
         }
@@ -63,11 +62,23 @@ export const register = async (req, res) => {
         res.status(201).json({ message: "Registro completado con éxito", userId });
 
     } catch (error) {
-        await connection.rollback();
+        if (connection) {
+            await connection.rollback();
+        }
         console.error("Error en el registro:", error);
+
+        // Manejar explícitamente errores de claves duplicadas (email, student_id, etc.)
+        if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+            return res.status(400).json({
+                message: "El correo electrónico o ID de estudiante ya se encuentra registrado."
+            });
+        }
+
         res.status(500).json({ message: "Error al registrar usuario", error: error.message });
     } finally {
-        connection.release();
+        if (connection) {
+            connection.release();
+        }
     }
 };
 

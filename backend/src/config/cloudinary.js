@@ -11,15 +11,13 @@ const CLOUDINARY_CONFIG = {
 
 cloudinary.config(CLOUDINARY_CONFIG);
 
-const configureStorageParams = (req, file) => ({
-    folder: 'pilas_profiles',
-    format: async (req, file) => 'png', // supports promises as well
-    public_id: (req, file) => `profile-${Date.now()}`,
-});
-
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: configureStorageParams,
+    params: {
+        folder: 'pilas_profiles',
+        format: async (req, file) => 'png', // supports promises as well
+        public_id: (req, file) => `profile-${Date.now()}`
+    },
 });
 
 export const upload = multer({ storage: storage });
