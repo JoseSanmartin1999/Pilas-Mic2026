@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import logo from '../assets/logo.png';
 
@@ -108,9 +108,9 @@ const LoginActions = () => (
             <input type="checkbox" className="h-4 w-4 text-pilas-blue border-gray-300 rounded focus:ring-pilas-gold" />
             <span className="ml-2 block text-gray-900">Recordarme</span>
         </label>
-        <button type="button" className="font-medium text-pilas-blue hover:text-pilas-gold focus:outline-none focus:underline">
+        <Link to="/forgot-password" className="font-medium text-pilas-blue hover:text-pilas-gold focus:outline-none focus:underline">
             ¿Olvidaste tu contraseña?
-        </button>
+        </Link>
     </div>
 );
 

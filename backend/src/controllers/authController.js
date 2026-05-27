@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import bcrypt from 'bcrypt';
+import { sendPasswordResetEmail } from '../services/emailService.js';
 
 export const register = async (req, res) => {
     const {
@@ -110,5 +111,75 @@ export const login = async (req, res) => {
     } catch (error) {
         console.error("Error en login:", error);
         res.status(500).json({ message: "Error al iniciar sesión", error: error.message });
+    }
+};
+
+export const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const [users] = await db.query('SELECT * FROM Users WHERE email = ?', [email]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+
+        const user = users[0];
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        // MySQL TIMESTAMP format YYYY-MM-DD HH:MM:SS
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+
+        await db.query('UPDATE Users SET reset_code = ?, reset_code_expires_at = ? WHERE id = ?', [code, expiresAt, user.id]);
+
+        await sendPasswordResetEmail(email, code);
+
+        res.json({ message: "Código de recuperación enviado al correo." });
+    } catch (error) {
+        console.error("Error en forgotPassword:", error);
+        res.status(500).json({ message: "Error al solicitar recuperación", error: error.message });
+    }
+};
+
+export const verifyResetCode = async (req, res) => {
+    const { email, code } = req.body;
+    try {
+        const [users] = await db.query('SELECT * FROM Users WHERE email = ? AND reset_code = ?', [email, code]);
+        if (users.length === 0) {
+            return res.status(400).json({ message: "Código incorrecto." });
+        }
+
+        const user = users[0];
+        
+        if (new Date() > new Date(user.reset_code_expires_at)) {
+            return res.status(400).json({ message: "El código ha expirado." });
+        }
+
+        res.json({ message: "Código verificado correctamente." });
+    } catch (error) {
+        console.error("Error en verifyResetCode:", error);
+        res.status(500).json({ message: "Error al verificar código", error: error.message });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    const { email, code, newPassword } = req.body;
+    try {
+        const [users] = await db.query('SELECT * FROM Users WHERE email = ? AND reset_code = ?', [email, code]);
+        if (users.length === 0) {
+            return res.status(400).json({ message: "Código incorrecto." });
+        }
+
+        const user = users[0];
+        
+        if (new Date() > new Date(user.reset_code_expires_at)) {
+            return res.status(400).json({ message: "El código ha expirado." });
+        }
+
+        const password_hash = await bcrypt.hash(newPassword, 10);
+        
+        await db.query('UPDATE Users SET password_hash = ?, reset_code = NULL, reset_code_expires_at = NULL WHERE id = ?', [password_hash, user.id]);
+
+        res.json({ message: "Contraseña actualizada correctamente." });
+    } catch (error) {
+        console.error("Error en resetPassword:", error);
+        res.status(500).json({ message: "Error al restablecer contraseña", error: error.message });
     }
 };
