@@ -8,6 +8,7 @@ const Solicitudes = () => {
     const [acceptingId, setAcceptingId] = useState(null);
     const [newDate, setNewDate] = useState('');
     const [newTime, setNewTime] = useState('');
+    const [reprogramReason, setReprogramReason] = useState('');
     const [meetingData, setMeetingData] = useState({ meeting_link: '', zoom_code: '', zoom_password: '' });
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -134,28 +135,93 @@ const Solicitudes = () => {
                                 </div>
 
                                 {reprogrammingId === m.id && (
-                                    <div className="mt-8 pt-8 border-t border-dashed border-gray-200 animate-in slide-in-from-top duration-300">
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <input 
-                                                type="date" 
-                                                className="px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
-                                                onChange={(e) => setNewDate(e.target.value)}
-                                            />
-                                            <input 
-                                                type="time" 
-                                                className="px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
-                                                onChange={(e) => setNewTime(e.target.value)}
-                                            />
-                                            <button 
-                                                onClick={() => {
-                                                    if (!newDate || !newTime) return alert("Selecciona fecha y hora");
-                                                    handleAction(m.id, 'PENDIENTE', { scheduled_date: `${newDate}T${newTime}:00` });
-                                                }}
-                                                className="bg-[#ffcc00] text-white font-black py-3 rounded-2xl uppercase text-[10px] tracking-widest hover:bg-yellow-500 transition-all shadow-md"
-                                            >
-                                                Confirmar Nueva Fecha
-                                            </button>
+                                    <div className="mt-8 pt-8 border-t border-dashed border-gray-200 animate-in slide-in-from-top duration-300 space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Nueva Fecha</label>
+                                                <input 
+                                                    type="date" 
+                                                    className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                    onChange={(e) => setNewDate(e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Nueva Hora</label>
+                                                <input 
+                                                    type="time" 
+                                                    className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                    onChange={(e) => setNewTime(e.target.value)}
+                                                />
+                                            </div>
                                         </div>
+                                        
+                                        <div>
+                                            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Motivo de la Reprogramación</label>
+                                            <textarea 
+                                                className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-medium text-gray-600 text-sm border border-gray-100 resize-none"
+                                                rows="3"
+                                                placeholder="Explica brevemente por qué necesitas cambiar la fecha..."
+                                                onChange={(e) => setReprogramReason(e.target.value)}
+                                            ></textarea>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => {
+                                                if (!newDate || !newTime || !reprogramReason.trim()) return alert("Por favor completa todos los campos (fecha, hora y motivo)");
+                                                handleAction(m.id, 'PENDIENTE', { 
+                                                    scheduled_date: `${newDate}T${newTime}:00`,
+                                                    reprogramming_reason: reprogramReason,
+                                                    last_initiator_role: 'MENTOR',
+                                                    ...(m.modality === 'Online' ? meetingData : {})
+                                                });
+                                            }}
+                                            className="w-full bg-[#ffcc00] text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-yellow-500 transition-all shadow-md"
+                                        >
+                                            Enviar Propuesta de Reprogramación
+                                        </button>
+
+                                        {m.modality === 'Online' && (
+                                            <div className="bg-white p-6 rounded-3xl border border-pilas-gold/20 space-y-4 animate-in fade-in duration-300">
+                                                <h4 className="text-[10px] font-black text-pilas-gold uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <span className="w-1.5 h-1.5 bg-pilas-gold rounded-full"></span>
+                                                    Datos de Reunión (Opcional en este paso)
+                                                </h4>
+                                                {(m.platform === 'Meet' || m.platform === 'Teams') && (
+                                                    <div>
+                                                        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Link de la Tutoría</label>
+                                                        <input 
+                                                            type="url" 
+                                                            placeholder="https://meet.google.com/..."
+                                                            className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                            value={meetingData.meeting_link}
+                                                            onChange={(e) => setMeetingData({ ...meetingData, meeting_link: e.target.value })}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {m.platform === 'Zoom' && (
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Código Zoom</label>
+                                                            <input 
+                                                                type="text" 
+                                                                className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                                value={meetingData.zoom_code}
+                                                                onChange={(e) => setMeetingData({ ...meetingData, zoom_code: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Clave Zoom</label>
+                                                            <input 
+                                                                type="text" 
+                                                                className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
+                                                                value={meetingData.zoom_password}
+                                                                onChange={(e) => setMeetingData({ ...meetingData, zoom_password: e.target.value })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

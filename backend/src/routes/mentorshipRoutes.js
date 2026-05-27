@@ -1,5 +1,5 @@
 import express from 'express';
-import { createMentorship, getMentorshipsByUser, updateMentorship, getNotificationCounts, markAsRead } from '../controllers/mentorshipController.js';
+import { createMentorship, getMentorshipsByUser, updateMentorship, getNotificationCounts, markAsRead, deleteMentorship } from '../controllers/mentorshipController.js';
 
 const router = express.Router();
 
@@ -17,5 +17,8 @@ router.get('/counts/:userId', getNotificationCounts);
 
 // PATCH /api/mentorships/:id/read
 router.patch('/:id/read', markAsRead);
+
+// DELETE /api/mentorships/:id
+router.delete('/:id', deleteMentorship);
 
 export default router;

@@ -5,6 +5,12 @@ const Mensajes = () => {
     const [responses, setResponses] = useState([]);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isReprogramming, setIsReprogramming] = useState(false);
+    const [newDate, setNewDate] = useState('');
+    const [newTime, setNewTime] = useState('');
+    const [reprogramReason, setReprogramReason] = useState('');
+    const [isUpdatingLink, setIsUpdatingLink] = useState(false);
+    const [linkData, setLinkData] = useState({ meeting_link: '', zoom_code: '', zoom_password: '' });
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -30,16 +36,67 @@ const Mensajes = () => {
         }
     };
 
+    const handleAction = async (id, status, extraData = {}) => {
+        try {
+            const payload = { status, ...extraData };
+            await axios.put(`http://localhost:3000/api/mentorships/${id}`, payload);
+            alert(`Tutoría ${status === 'ACEPTADA' ? 'aceptada' : status === 'RECHAZADA' ? 'declinada' : 'reprogramada'} con éxito`);
+            setSelectedMessage(null);
+            setIsReprogramming(false);
+            fetchResponses();
+        } catch (err) {
+            alert("Error al procesar la acción");
+        }
+    };
+
+    const handleUpdateLink = async () => {
+        try {
+            await axios.put(`http://localhost:3000/api/mentorships/${selectedMessage.id}`, linkData);
+            alert("Link de reunión actualizado con éxito");
+            setIsUpdatingLink(false);
+            fetchResponses();
+            // Notificar al Navbar por si acaso
+            window.dispatchEvent(new CustomEvent('updateNotificationCounts'));
+        } catch (err) {
+            alert("Error al actualizar el enlace");
+        }
+    };
+
     const handleSelectMessage = async (msg) => {
         setSelectedMessage(msg);
+        setIsReprogramming(false);
+        setIsUpdatingLink(false);
+        setLinkData({ 
+            meeting_link: msg.meeting_link || '', 
+            zoom_code: msg.zoom_code || '', 
+            zoom_password: msg.zoom_password || '' 
+        });
         if (msg.apprentice_notified === 0) {
             try {
                 await axios.patch(`http://localhost:3000/api/mentorships/${msg.id}/read`);
-                // Update local status to avoid re-triggering and refresh counts if needed
                 setResponses(responses.map(r => r.id === msg.id ? { ...r, apprentice_notified: 1 } : r));
+                // Disparar evento para actualizar el contador en el Navbar al instante
+                window.dispatchEvent(new CustomEvent('updateNotificationCounts'));
             } catch (err) {
                 console.error("Error marking as read:", err);
             }
+        }
+    };
+ 
+    const handleDeleteMessage = async (e, id) => {
+        e.stopPropagation(); // Evitar seleccionar el mensaje al borrar
+        if (!window.confirm("¿Estás seguro de que quieres eliminar este mensaje?")) return;
+        
+        try {
+            await axios.delete(`http://localhost:3000/api/mentorships/${id}`);
+            setResponses(responses.filter(r => r.id !== id));
+            if (selectedMessage?.id === id) {
+                setSelectedMessage(null);
+            }
+            // Actualizar contadores por si acaso el borrado afecta notificaciones pendientes
+            window.dispatchEvent(new CustomEvent('updateNotificationCounts'));
+        } catch (err) {
+            alert("Error al eliminar el mensaje");
         }
     };
 
@@ -72,10 +129,13 @@ const Mensajes = () => {
                     <div className="p-4 bg-gray-50/50 border-b border-gray-50 uppercase text-[10px] font-black tracking-widest text-gray-400">Recientes</div>
                     {responses.length > 0 ? (
                         responses.map((r) => (
-                            <button 
+                            <div 
                                 key={r.id}
                                 onClick={() => handleSelectMessage(r)}
-                                className={`w-full text-left p-6 border-b border-gray-50 transition-all hover:bg-pilas-gold/5 flex flex-col gap-2 ${selectedMessage?.id === r.id ? 'bg-pilas-gold/10 border-l-4 border-l-pilas-gold' : 'bg-white'}`}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectMessage(r); }}
+                                role="button"
+                                tabIndex={0}
+                                className={`w-full text-left p-6 border-b border-gray-50 transition-all hover:bg-pilas-gold/5 flex flex-col gap-2 cursor-pointer outline-none ${selectedMessage?.id === r.id ? 'bg-pilas-gold/10 border-l-4 border-l-pilas-gold' : 'bg-white'}`}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-2">
@@ -84,11 +144,22 @@ const Mensajes = () => {
                                     </div>
                                     <span className="text-[9px] font-bold text-gray-400">{new Date(r.scheduled_date).toLocaleDateString()}</span>
                                 </div>
-                                <div className="text-sm font-semibold text-gray-700">Respuesta: {r.subject_name}</div>
+                                <div className="flex justify-between items-center">
+                                    <div className="text-sm font-semibold text-gray-700">Respuesta: {r.subject_name}</div>
+                                    <button 
+                                        onClick={(e) => handleDeleteMessage(e, r.id)}
+                                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors group-hover:opacity-100"
+                                        title="Eliminar mensaje"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
                                 <div className={`text-[9px] font-black px-2 py-0.5 rounded-full border self-start uppercase tracking-tighter ${getStatusStyle(r.status)}`}>
                                     {r.status}
                                 </div>
-                            </button>
+                            </div>
                         ))
                     ) : (
                         <div className="p-10 text-center text-gray-400 italic text-sm">No tienes mensajes.</div>
@@ -121,9 +192,21 @@ const Mensajes = () => {
 
                                 <div className="bg-gray-50/80 rounded-3xl p-8 border border-gray-100/50 shadow-inner leading-relaxed text-gray-600 font-medium">
                                     <p className="mb-4">Hola <span className="font-bold text-[#1a3a5a]">{currentUser.full_name}</span>,</p>
-                                    <p>
-                                        Tu mentor ha revisado tu solicitud. Actualmente se encuentra en estado <span className="font-bold text-[#1a3a5a]">{selectedMessage.status}</span>.
-                                    </p>
+                                    {selectedMessage.status === 'PENDIENTE' && (
+                                        <div className="mt-4 p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
+                                            <p className="text-yellow-800 text-sm font-bold flex items-center gap-2">
+                                                <span className="animate-pulse w-2 h-2 bg-yellow-500 rounded-full"></span>
+                                                Propuesta pendiente de revisión
+                                            </p>
+                                        </div>
+                                    )}
+                                    {selectedMessage.status === 'CANCELADA' && (
+                                        <div className="mt-4 p-4 bg-red-50 rounded-2xl border border-red-100">
+                                            <p className="text-red-800 text-sm font-bold">
+                                                ⚠️ Tutoría cancelada automáticamente por falta de acuerdo tras varios intentos.
+                                            </p>
+                                        </div>
+                                    )}
                                     {selectedMessage.status === 'ACEPTADA' && (
                                         <p className="mt-4 text-green-600 font-bold">
                                             ¡Felicidades! Tu tutoría ha sido confirmada para la fecha y hora seleccionada.
@@ -135,6 +218,92 @@ const Mensajes = () => {
                                         </p>
                                     )}
                                 </div>
+
+                                {selectedMessage.status === 'PENDIENTE' && selectedMessage.last_initiator_role === 'MENTOR' && (
+                                    <div className="animate-in zoom-in duration-300">
+                                        <div className="bg-pilas-gold/10 rounded-[2.5rem] p-8 border-2 border-pilas-gold/30 space-y-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-pilas-gold rounded-full flex items-center justify-center text-white text-xl">💡</div>
+                                                <div>
+                                                    <h4 className="text-sm font-black text-[#1a3a5a] uppercase tracking-wider">El Mentor propone un cambio</h4>
+                                                    <p className="text-xs font-bold text-pilas-gold italic">Intento {selectedMessage.reprogramming_count} de 2</p>
+                                                </div>
+                                            </div>
+
+                                            {selectedMessage.reprogramming_reason && (
+                                                <div className="bg-white/50 backdrop-blur-sm p-5 rounded-2xl border border-pilas-gold/20">
+                                                    <p className="text-[10px] font-black text-pilas-gold uppercase tracking-widest mb-2">Motivo indicado:</p>
+                                                    <p className="text-sm font-medium text-gray-700 italic">"{selectedMessage.reprogramming_reason}"</p>
+                                                </div>
+                                            )}
+
+                                            {!isReprogramming ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                                                    <button 
+                                                        onClick={() => handleAction(selectedMessage.id, 'ACEPTADA')}
+                                                        className="py-4 bg-[#1a3a5a] text-[#ffcc00] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:bg-[#112740] transition-all"
+                                                    >
+                                                        Aceptar Cambio
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setIsReprogramming(true)}
+                                                        className="py-4 bg-white border-2 border-pilas-gold text-[#1a3a5a] rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-pilas-gold hover:text-white transition-all shadow-md"
+                                                    >
+                                                        Reprogramar
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleAction(selectedMessage.id, 'RECHAZADA')}
+                                                        className="py-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all font-bold"
+                                                    >
+                                                        Rechazar
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4 animate-in slide-in-from-top duration-300">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <input 
+                                                            type="date" 
+                                                            className="px-5 py-3 bg-white rounded-2xl focus:ring-2 focus:ring-pilas-gold outline-none font-bold text-[#1a3a5a] border border-pilas-gold/20"
+                                                            onChange={(e) => setNewDate(e.target.value)}
+                                                        />
+                                                        <input 
+                                                            type="time" 
+                                                            className="px-5 py-3 bg-white rounded-2xl focus:ring-2 focus:ring-pilas-gold outline-none font-bold text-[#1a3a5a] border border-pilas-gold/20"
+                                                            onChange={(e) => setNewTime(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <textarea 
+                                                        className="w-full px-5 py-3 bg-white rounded-2xl focus:ring-2 focus:ring-pilas-gold outline-none font-medium text-gray-600 text-sm border border-pilas-gold/20 resize-none"
+                                                        rows="3"
+                                                        placeholder="Explica por qué propones este cambio..."
+                                                        onChange={(e) => setReprogramReason(e.target.value)}
+                                                    ></textarea>
+                                                    <div className="flex gap-4">
+                                                        <button 
+                                                            onClick={() => {
+                                                                if (!newDate || !newTime || !reprogramReason.trim()) return alert("Por favor completa todos los campos");
+                                                                handleAction(selectedMessage.id, 'PENDIENTE', {
+                                                                    scheduled_date: `${newDate}T${newTime}:00`,
+                                                                    reprogramming_reason: reprogramReason,
+                                                                    last_initiator_role: 'APRENDIZ'
+                                                                });
+                                                            }}
+                                                            className="flex-1 bg-pilas-gold text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-yellow-600 transition-all"
+                                                        >
+                                                            Enviar Contra-propuesta
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setIsReprogramming(false)}
+                                                            className="px-6 bg-gray-100 text-gray-500 font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest hover:bg-gray-200 transition-all"
+                                                        >
+                                                            Cancelar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="p-6 bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
@@ -186,35 +355,91 @@ const Mensajes = () => {
                                                 </div>
 
                                                 {selectedMessage.status === 'ACEPTADA' ? (
-                                                    <div className="pt-4">
-                                                        {selectedMessage.platform === 'Zoom' ? (
-                                                            <div className="bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100">
-                                                                <div className="flex justify-between items-center text-xs">
-                                                                    <span className="font-bold text-gray-400">ID de Reunión:</span>
-                                                                    <span className="font-black text-[#1a3a5a]">{selectedMessage.zoom_code || 'No proporcionado'}</span>
-                                                                </div>
-                                                                {selectedMessage.zoom_password && (
-                                                                    <div className="flex justify-between items-center text-xs">
-                                                                        <span className="font-bold text-gray-400">Contraseña:</span>
-                                                                        <span className="font-black text-[#1a3a5a]">{selectedMessage.zoom_password}</span>
+                                                    <div className="pt-4 space-y-4">
+                                                        {!isUpdatingLink ? (
+                                                            <>
+                                                                {selectedMessage.platform === 'Zoom' ? (
+                                                                    <div className="bg-gray-50 rounded-2xl p-4 space-y-2 border border-gray-100">
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="font-bold text-gray-400">ID de Reunión:</span>
+                                                                            <span className="font-black text-[#1a3a5a]">{selectedMessage.zoom_code || 'No proporcionado'}</span>
+                                                                        </div>
+                                                                        {selectedMessage.zoom_password && (
+                                                                            <div className="flex justify-between items-center text-xs">
+                                                                                <span className="font-bold text-gray-400">Contraseña:</span>
+                                                                                <span className="font-black text-[#1a3a5a]">{selectedMessage.zoom_password}</span>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
+                                                                ) : (
+                                                                    selectedMessage.meeting_link ? (
+                                                                        <a 
+                                                                            href={selectedMessage.meeting_link.startsWith('http') ? selectedMessage.meeting_link : `https://${selectedMessage.meeting_link}`}
+                                                                            target="_blank" 
+                                                                            rel="noopener noreferrer"
+                                                                            className="flex items-center justify-center gap-3 w-full py-4 bg-[#1a3a5a] text-[#ffcc00] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:shadow-[#1a3a5a]/20 hover:scale-[1.02] transition-all"
+                                                                        >
+                                                                            <span>🚀 Unirse a la Reunión</span>
+                                                                        </a>
+                                                                    ) : (
+                                                                        <div className="text-center p-4 bg-yellow-50 text-yellow-700 text-xs font-bold rounded-2xl border border-yellow-100">
+                                                                            El tutor aún no ha proporcionado el enlace.
+                                                                        </div>
+                                                                    )
                                                                 )}
-                                                            </div>
+
+                                                                {currentUser.id === selectedMessage.mentor_id && (
+                                                                    <button 
+                                                                        onClick={() => setIsUpdatingLink(true)}
+                                                                        className="w-full py-2 text-[10px] font-black text-pilas-gold uppercase tracking-widest hover:underline"
+                                                                    >
+                                                                        {selectedMessage.meeting_link || selectedMessage.zoom_code ? '✎ Editar Enlace' : '+ Agregar Enlace de Reunión'}
+                                                                    </button>
+                                                                )}
+                                                            </>
                                                         ) : (
-                                                            selectedMessage.meeting_link ? (
-                                                                <a 
-                                                                    href={selectedMessage.meeting_link.startsWith('http') ? selectedMessage.meeting_link : `https://${selectedMessage.meeting_link}`}
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer"
-                                                                    className="flex items-center justify-center gap-3 w-full py-4 bg-[#1a3a5a] text-[#ffcc00] rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:shadow-[#1a3a5a]/20 hover:scale-[1.02] transition-all"
-                                                                >
-                                                                    <span>🚀 Unirse a la Reunión</span>
-                                                                </a>
-                                                            ) : (
-                                                                <div className="text-center p-4 bg-yellow-50 text-yellow-700 text-xs font-bold rounded-2xl border border-yellow-100">
-                                                                    El tutor aún no ha proporcionado el enlace.
+                                                            <div className="bg-gray-50 p-4 rounded-2xl border border-pilas-gold/20 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                                                {selectedMessage.platform === 'Zoom' ? (
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <input 
+                                                                            type="text" 
+                                                                            placeholder="ID Zoom"
+                                                                            className="px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pilas-gold font-bold text-[#1a3a5a]"
+                                                                            value={linkData.zoom_code}
+                                                                            onChange={(e) => setLinkData({...linkData, zoom_code: e.target.value})}
+                                                                        />
+                                                                        <input 
+                                                                            type="text" 
+                                                                            placeholder="Clave Zoom"
+                                                                            className="px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pilas-gold font-bold text-[#1a3a5a]"
+                                                                            value={linkData.zoom_password}
+                                                                            onChange={(e) => setLinkData({...linkData, zoom_password: e.target.value})}
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <input 
+                                                                        type="url" 
+                                                                        placeholder="https://meet.google.com/..."
+                                                                        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pilas-gold font-bold text-[#1a3a5a]"
+                                                                        value={linkData.meeting_link}
+                                                                        onChange={(e) => setLinkData({...linkData, meeting_link: e.target.value})}
+                                                                    />
+                                                                )}
+                                                                <div className="flex gap-2">
+                                                                    <button 
+                                                                        onClick={handleUpdateLink}
+                                                                        className="flex-1 py-2 bg-pilas-gold text-white text-[10px] font-black rounded-lg uppercase tracking-widest"
+                                                                    >
+                                                                        Guardar
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => setIsUpdatingLink(false)}
+                                                                        className="px-4 py-2 bg-gray-200 text-gray-500 text-[10px] font-black rounded-lg uppercase tracking-widest"
+                                                                    >
+                                                                        X
+                                                                    </button>
                                                                 </div>
-                                                            )
+                                                            </div>
                                                         )}
                                                     </div>
                                                 ) : (

@@ -42,6 +42,10 @@ export const getMentorshipsByUser = async (req, res) => {
                 m.meeting_link,
                 m.zoom_code,
                 m.zoom_password,
+                m.reprogramming_count,
+                m.reprogramming_reason,
+                m.last_initiator_role,
+                m.apprentice_notified,
                 mentor.full_name as mentor_name,
                 apprentice.full_name as apprentice_name,
                 s.name as subject_name
@@ -49,7 +53,7 @@ export const getMentorshipsByUser = async (req, res) => {
             JOIN Users mentor ON m.mentor_id = mentor.id
             JOIN Users apprentice ON m.apprentice_id = apprentice.id
             JOIN Subjects s ON m.subject_id = s.id
-            WHERE (m.mentor_id = ? OR m.apprentice_id = ?)
+            WHERE (m.mentor_id = ? OR m.apprentice_id = ?) AND m.is_deleted = 0
             ORDER BY m.created_at DESC
         `;
         const [rows] = await db.query(query, [userId, userId]);
@@ -62,42 +66,64 @@ export const getMentorshipsByUser = async (req, res) => {
 
 export const updateMentorship = async (req, res) => {
     const { id } = req.params;
-    const { status, scheduled_date, meeting_link, zoom_code, zoom_password } = req.body;
+    const { 
+        status, 
+        scheduled_date, 
+        meeting_link, 
+        zoom_code, 
+        zoom_password, 
+        modality, 
+        meeting_place, 
+        platform, 
+        reprogramming_reason, 
+        last_initiator_role 
+    } = req.body;
+
     try {
+        // Primero obtenemos el estado actual para la lógica de contador
+        const [current] = await db.query("SELECT reprogramming_count, status FROM Mentorships WHERE id = ?", [id]);
+        if (current.length === 0) return res.status(404).json({ error: "Tutoría no encontrada" });
+        
+        let newCount = current[0].reprogramming_count;
+        let finalStatus = status || current[0].status;
+
+        // Lógica de reprogramación: si se propone cambio de fecha o lugar mientras está pendiente
+        if (scheduled_date || meeting_place || modality) {
+            newCount += 1;
+            // Límite de 2 intentos de reprogramación (3era propuesta cancela)
+            if (newCount > 2) {
+                finalStatus = 'CANCELADA';
+            }
+        }
+
         let query = "UPDATE Mentorships SET ";
         const params = [];
         const updates = [];
 
-        if (status) {
-            updates.push("status = ?, apprentice_notified = 0");
-            params.push(status);
-        }
-        if (scheduled_date) {
-            updates.push("scheduled_date = ?");
-            params.push(scheduled_date);
-        }
-        if (meeting_link) {
-            updates.push("meeting_link = ?");
-            params.push(meeting_link);
-        }
-        if (zoom_code) {
-            updates.push("zoom_code = ?");
-            params.push(zoom_code);
-        }
-        if (zoom_password) {
-            updates.push("zoom_password = ?");
-            params.push(zoom_password);
-        }
+        // Siempre reseteamos la notificación del aprendiz si hay cambios
+        updates.push("status = ?, apprentice_notified = 0, reprogramming_count = ?");
+        params.push(finalStatus, newCount);
 
-        if (updates.length === 0) {
-            return res.status(400).json({ error: "No hay campos para actualizar" });
-        }
+        if (scheduled_date) { updates.push("scheduled_date = ?"); params.push(scheduled_date); }
+        if (meeting_link) { updates.push("meeting_link = ?"); params.push(meeting_link); }
+        if (zoom_code) { updates.push("zoom_code = ?"); params.push(zoom_code); }
+        if (zoom_password) { updates.push("zoom_password = ?"); params.push(zoom_password); }
+        if (modality) { updates.push("modality = ?"); params.push(modality); }
+        if (meeting_place) { updates.push("meeting_place = ?"); params.push(meeting_place); }
+        if (platform) { updates.push("platform = ?"); params.push(platform); }
+        if (reprogramming_reason) { updates.push("reprogramming_reason = ?"); params.push(reprogramming_reason); }
+        if (last_initiator_role) { updates.push("last_initiator_role = ?"); params.push(last_initiator_role); }
 
         query += updates.join(", ") + " WHERE id = ?";
         params.push(id);
 
         await db.query(query, params);
-        res.json({ message: "Tutoría actualizada correctamente" });
+        
+        res.json({ 
+            message: finalStatus === 'CANCELADA' ? "Tutoría cancelada por límite de intentos superado" : "Tutoría actualizada correctamente",
+            status: finalStatus,
+            reprogramming_count: newCount
+        });
     } catch (error) {
         console.error("Error updating mentorship:", error);
         res.status(500).json({ error: "No se pudo actualizar la tutoría" });
@@ -109,13 +135,13 @@ export const getNotificationCounts = async (req, res) => {
     try {
         // Conteo para el mentor: Tutorías en estado PENDIENTE recibidas
         const [pendingMentor] = await db.query(
-            "SELECT COUNT(*) as count FROM Mentorships WHERE mentor_id = ? AND status = 'PENDIENTE'",
+            "SELECT COUNT(*) as count FROM Mentorships WHERE mentor_id = ? AND status = 'PENDIENTE' AND is_deleted = 0",
             [userId]
         );
 
         // Conteo para el aprendiz: Respuestas (status != PENDIENTE) no leídas
         const [newInboxApprentice] = await db.query(
-            "SELECT COUNT(*) as count FROM Mentorships WHERE apprentice_id = ? AND status != 'PENDIENTE' AND apprentice_notified = 0",
+            "SELECT COUNT(*) as count FROM Mentorships WHERE apprentice_id = ? AND status != 'PENDIENTE' AND apprentice_notified = 0 AND is_deleted = 0",
             [userId]
         );
 
@@ -140,3 +166,13 @@ export const markAsRead = async (req, res) => {
     }
 };
 
+export const deleteMentorship = async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query("UPDATE Mentorships SET is_deleted = 1 WHERE id = ?", [id]);
+        res.json({ message: "Tutoría eliminada lógicamente" });
+    } catch (error) {
+        console.error("Error deleting mentorship:", error);
+        res.status(500).json({ error: "No se pudo eliminar la tutoría" });
+    }
+};
