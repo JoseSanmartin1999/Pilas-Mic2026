@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import { sendMentorshipStatusEmail } from '../services/emailService.js';
 
 export const createMentorship = async (req, res) => {
     const { mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality, meeting_place, platform } = req.body;
@@ -80,8 +81,16 @@ export const updateMentorship = async (req, res) => {
     } = req.body;
 
     try {
-        // Primero obtenemos el estado actual para la lógica de contador
-        const [current] = await db.query("SELECT reprogramming_count, status FROM Mentorships WHERE id = ?", [id]);
+        // Primero obtenemos el estado actual para la lógica de contador y notificaciones
+        const [current] = await db.query(`
+            SELECT m.reprogramming_count, m.status, a.email as apprentice_email, a.full_name as apprentice_name, 
+                   mt.full_name as mentor_name, s.name as subject_name
+            FROM Mentorships m
+            JOIN Users a ON m.apprentice_id = a.id
+            JOIN Users mt ON m.mentor_id = mt.id
+            JOIN Subjects s ON m.subject_id = s.id
+            WHERE m.id = ?
+        `, [id]);
         if (current.length === 0) return res.status(404).json({ error: "Tutoría no encontrada" });
         
         let newCount = current[0].reprogramming_count;
@@ -118,6 +127,21 @@ export const updateMentorship = async (req, res) => {
         params.push(id);
 
         await db.query(query, params);
+        
+        // Enviar correo si el estado cambia a ACEPTADA o RECHAZADA
+        if (status && (finalStatus === 'ACEPTADA' || finalStatus === 'RECHAZADA') && finalStatus !== current[0].status) {
+            try {
+                await sendMentorshipStatusEmail(
+                    current[0].apprentice_email, 
+                    current[0].apprentice_name, 
+                    current[0].mentor_name, 
+                    finalStatus, 
+                    current[0].subject_name
+                );
+            } catch(err) {
+                console.error("No se pudo enviar el correo de actualización de estado:", err);
+            }
+        }
         
         res.json({ 
             message: finalStatus === 'CANCELADA' ? "Tutoría cancelada por límite de intentos superado" : "Tutoría actualizada correctamente",
