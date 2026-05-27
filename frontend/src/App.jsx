@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import Register from './pages/Register';
 import BuscarTutor from './pages/BuscarTutor';
 import Profile from './pages/Profile';
@@ -36,7 +37,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login setAuth={setAuth} />} />
-            <Route path="/registro" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/registro" element={<Register />} />
             <Route path="/buscar" element={<BuscarTutor />} />
              {/* Mantenemos el parámetro :id para cargar perfiles específicos [cite: 105, 107]
                 Ejemplo: /profile/1

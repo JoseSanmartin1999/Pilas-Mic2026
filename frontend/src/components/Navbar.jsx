@@ -14,7 +14,15 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
         if (isAuthenticated && currentUser.id) {
             fetchCounts();
             const interval = setInterval(fetchCounts, 15000); // Polling cada 15 segundos
-            return () => clearInterval(interval);
+            
+            // Listener para actualización inmediata desde otros componentes
+            const handleUpdateEvent = () => fetchCounts();
+            window.addEventListener('updateNotificationCounts', handleUpdateEvent);
+
+            return () => {
+                clearInterval(interval);
+                window.removeEventListener('updateNotificationCounts', handleUpdateEvent);
+            };
         }
     }, [isAuthenticated, currentUser.id]);
 
