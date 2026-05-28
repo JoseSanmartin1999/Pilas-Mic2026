@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNotification } from '../context/NotificationContext';
 
 const Solicitudes = () => {
+    const { showNotification } = useNotification();
     const [mentorships, setMentorships] = useState([]);
     const [loading, setLoading] = useState(true);
     const [reprogrammingId, setReprogrammingId] = useState(null);
@@ -36,13 +38,13 @@ const Solicitudes = () => {
             const payload = { status, ...extraData };
             
             await axios.put(`http://localhost:3000/api/mentorships/${id}`, payload);
-            alert(`Tutoría ${status === 'ACEPTADA' ? 'aceptada' : status === 'RECHAZADA' ? 'declinada' : 'reprogramada'} con éxito`);
+            showNotification(`Tutoría ${status === 'ACEPTADA' ? 'aceptada' : status === 'RECHAZADA' ? 'declinada' : 'reprogramada'} con éxito`, "success");
             setReprogrammingId(null);
             setAcceptingId(null);
             setMeetingData({ meeting_link: '', zoom_code: '', zoom_password: '' });
             fetchMentorships();
         } catch (err) {
-            alert("Error al procesar la acción");
+            showNotification("Error al procesar la acción", "error");
         }
     };
 
@@ -167,7 +169,7 @@ const Solicitudes = () => {
 
                                         <button 
                                             onClick={() => {
-                                                if (!newDate || !newTime || !reprogramReason.trim()) return alert("Por favor completa todos los campos (fecha, hora y motivo)");
+                                                if (!newDate || !newTime || !reprogramReason.trim()) return showNotification("Por favor completa todos los campos (fecha, hora y motivo)", "warning");
                                                 handleAction(m.id, 'PENDIENTE', { 
                                                     scheduled_date: `${newDate}T${newTime}:00`,
                                                     reprogramming_reason: reprogramReason,
@@ -269,8 +271,8 @@ const Solicitudes = () => {
 
                                             <button 
                                                 onClick={() => {
-                                                    if (m.platform === 'Zoom' && !meetingData.zoom_code) return alert("Por favor ingresa el código de reunión");
-                                                    if ((m.platform === 'Meet' || m.platform === 'Teams') && !meetingData.meeting_link) return alert("Por favor ingresa el link de la reunión");
+                                                    if (m.platform === 'Zoom' && !meetingData.zoom_code) return showNotification("Por favor ingresa el código de reunión", "warning");
+                                                    if ((m.platform === 'Meet' || m.platform === 'Teams') && !meetingData.meeting_link) return showNotification("Por favor ingresa el link de la reunión", "warning");
                                                     handleAction(m.id, 'ACEPTADA', meetingData);
                                                 }}
                                                 className="w-full bg-[#1a3a5a] text-[#ffcc00] font-black py-4 rounded-2xl uppercase text-xs tracking-widest hover:bg-[#112740] transition-all shadow-lg"

@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNotification } from '../../context/NotificationContext';
 
 /**
  * TopBar — Cabecera dinámica del workspace
  * Muestra: materia + compañero | progress bar | botón de hito
  */
 const TopBar = ({ mentorship, currentUser }) => {
+    const { showNotification } = useNotification();
     // Determinar quién es el compañero (el otro participante)
     const isMentor = currentUser?.id === mentorship?.mentor_id;
     const partnerName = isMentor ? mentorship?.apprentice_name : mentorship?.mentor_name;
@@ -14,7 +16,7 @@ const TopBar = ({ mentorship, currentUser }) => {
     const progress = 15;
 
     const handleHito = () => {
-        alert('🏆 ¡Hito marcado! Esta funcionalidad se conectará con el sistema de gamificación próximamente.');
+        showNotification('🏆 ¡Hito marcado! Esta funcionalidad se conectará con el sistema de gamificación próximamente.', 'info');
     };
 
     return (

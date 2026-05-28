@@ -12,6 +12,8 @@ import Solicitudes from './pages/Solicitudes';
 import MiTutoria from './pages/MiTutoria';
 import Footer from './components/Footer';
 
+import { NotificationProvider } from './context/NotificationContext';
+
 // Componente interno para poder usar useLocation (debe estar dentro de <Router>)
 const AppContent = ({ auth, setAuth }) => {
   const location = useLocation();
@@ -20,6 +22,7 @@ const AppContent = ({ auth, setAuth }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     setAuth({ isLogged: false, role: 'APRENDIZ' });
     window.location.href = '/login';
   };
@@ -56,8 +59,8 @@ const AppContent = ({ auth, setAuth }) => {
 
 function App() {
   const [auth, setAuth] = useState(() => {
-    // Restaurar sesión si existe en localStorage
-    const savedUser = localStorage.getItem('user');
+    // Restaurar sesión si existe en localStorage o sessionStorage
+    const savedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
       return { isLogged: true, role: user.role };
@@ -67,7 +70,9 @@ function App() {
 
   return (
     <Router>
-      <AppContent auth={auth} setAuth={setAuth} />
+      <NotificationProvider>
+        <AppContent auth={auth} setAuth={setAuth} />
+      </NotificationProvider>
     </Router>
   );
 }

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNotification } from '../context/NotificationContext';
 
 const Mensajes = () => {
+    const { showNotification } = useNotification();
     const [responses, setResponses] = useState([]);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -11,6 +13,8 @@ const Mensajes = () => {
     const [reprogramReason, setReprogramReason] = useState('');
     const [isUpdatingLink, setIsUpdatingLink] = useState(false);
     const [linkData, setLinkData] = useState({ meeting_link: '', zoom_code: '', zoom_password: '' });
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, targetId: null, isBulk: false });
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
@@ -40,25 +44,25 @@ const Mensajes = () => {
         try {
             const payload = { status, ...extraData };
             await axios.put(`http://localhost:3000/api/mentorships/${id}`, payload);
-            alert(`Tutoría ${status === 'ACEPTADA' ? 'aceptada' : status === 'RECHAZADA' ? 'declinada' : 'reprogramada'} con éxito`);
+            showNotification(`Tutoría ${status === 'ACEPTADA' ? 'aceptada' : status === 'RECHAZADA' ? 'declinada' : 'reprogramada'} con éxito`, "success");
             setSelectedMessage(null);
             setIsReprogramming(false);
             fetchResponses();
         } catch (err) {
-            alert("Error al procesar la acción");
+            showNotification("Error al procesar la acción", "error");
         }
     };
 
     const handleUpdateLink = async () => {
         try {
             await axios.put(`http://localhost:3000/api/mentorships/${selectedMessage.id}`, linkData);
-            alert("Link de reunión actualizado con éxito");
+            showNotification("Link de reunión actualizado con éxito", "success");
             setIsUpdatingLink(false);
             fetchResponses();
             // Notificar al Navbar por si acaso
             window.dispatchEvent(new CustomEvent('updateNotificationCounts'));
         } catch (err) {
-            alert("Error al actualizar el enlace");
+            showNotification("Error al actualizar el enlace", "error");
         }
     };
 
@@ -83,20 +87,41 @@ const Mensajes = () => {
         }
     };
  
-    const handleDeleteMessage = async (e, id) => {
+    const handleDeleteMessage = (e, id) => {
         e.stopPropagation(); // Evitar seleccionar el mensaje al borrar
-        if (!window.confirm("¿Estás seguro de que quieres eliminar este mensaje?")) return;
-        
+        setConfirmDeleteModal({ isOpen: true, targetId: id, isBulk: false });
+    };
+
+    const handleConfirmDelete = async () => {
         try {
-            await axios.delete(`http://localhost:3000/api/mentorships/${id}`);
-            setResponses(responses.filter(r => r.id !== id));
-            if (selectedMessage?.id === id) {
-                setSelectedMessage(null);
+            if (confirmDeleteModal.isBulk) {
+                // Eliminación en masa
+                await Promise.all(
+                    selectedIds.map(id => axios.delete(`http://localhost:3000/api/mentorships/${id}`))
+                );
+                showNotification(`Se eliminaron ${selectedIds.length} mensajes con éxito`, "success");
+                setResponses(responses.filter(r => !selectedIds.includes(r.id)));
+                if (selectedMessage && selectedIds.includes(selectedMessage.id)) {
+                    setSelectedMessage(null);
+                }
+                setSelectedIds([]);
+            } else {
+                // Eliminación individual
+                const id = confirmDeleteModal.targetId;
+                await axios.delete(`http://localhost:3000/api/mentorships/${id}`);
+                showNotification("Mensaje eliminado con éxito", "success");
+                setResponses(responses.filter(r => r.id !== id));
+                if (selectedMessage?.id === id) {
+                    setSelectedMessage(null);
+                }
+                setSelectedIds(selectedIds.filter(x => x !== id));
             }
-            // Actualizar contadores por si acaso el borrado afecta notificaciones pendientes
+            setConfirmDeleteModal({ isOpen: false, targetId: null, isBulk: false });
+            // Actualizar contadores globales en el Navbar
             window.dispatchEvent(new CustomEvent('updateNotificationCounts'));
         } catch (err) {
-            alert("Error al eliminar el mensaje");
+            console.error("Error al eliminar:", err);
+            showNotification("No se pudieron eliminar los mensajes", "error");
         }
     };
 
@@ -126,7 +151,35 @@ const Mensajes = () => {
                 
                 {/* LISTA DE EMAILS (4/12) */}
                 <div className="lg:col-span-4 border-r border-gray-50 overflow-y-auto max-h-[600px]">
-                    <div className="p-4 bg-gray-50/50 border-b border-gray-50 uppercase text-[10px] font-black tracking-widest text-gray-400">Recientes</div>
+                    <div className="p-4 bg-gray-50/50 border-b border-gray-50 flex items-center justify-between">
+                        <span className="uppercase text-[9px] font-black tracking-widest text-gray-400">
+                            {selectedIds.length > 0 ? `${selectedIds.length} Seleccionados` : 'Recientes'}
+                        </span>
+                        {responses.length > 0 && (
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => {
+                                        if (selectedIds.length === responses.length) {
+                                            setSelectedIds([]);
+                                        } else {
+                                            setSelectedIds(responses.map(r => r.id));
+                                        }
+                                    }}
+                                    className="text-[9px] font-black text-[#1a3a5a] hover:text-[#ffcc00] uppercase tracking-tighter cursor-pointer"
+                                >
+                                    {selectedIds.length === responses.length ? 'Desmarcar' : 'Todos'}
+                                </button>
+                                {selectedIds.length > 0 && (
+                                    <button 
+                                        onClick={() => setConfirmDeleteModal({ isOpen: true, targetId: null, isBulk: true })}
+                                        className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-tighter flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                        <span>🗑️</span> Borrar
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     {responses.length > 0 ? (
                         responses.map((r) => (
                             <div 
@@ -139,6 +192,19 @@ const Mensajes = () => {
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-2">
+                                        <input 
+                                            type="checkbox"
+                                            checked={selectedIds.includes(r.id)}
+                                            onClick={(e) => e.stopPropagation()} // Evitar seleccionar el mensaje al marcar el checkbox
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedIds(prev => [...prev, r.id]);
+                                                } else {
+                                                    setSelectedIds(prev => prev.filter(id => id !== r.id));
+                                                }
+                                            }}
+                                            className="w-4 h-4 rounded text-[#1a3a5a] focus:ring-[#ffcc00] border-gray-300 cursor-pointer mr-1"
+                                        />
                                         <span className="font-bold text-[#1a3a5a] truncate max-w-[120px]">{r.mentor_name}</span>
                                         {r.apprentice_notified === 0 && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
                                     </div>
@@ -468,6 +534,37 @@ const Mensajes = () => {
                     )}
                 </div>
             </div>
+
+            {/* CUSTOM CONFIRMATION MODAL */}
+            {confirmDeleteModal.isOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[#1a3a5a]/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 overflow-hidden animate-in zoom-in duration-200 border border-gray-100 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 text-3xl mb-6 shadow-sm border border-rose-100/50">
+                            🗑️
+                        </div>
+                        <h3 className="text-lg font-black text-[#1a3a5a] mb-2">¿Confirmar eliminación?</h3>
+                        <p className="text-gray-500 font-medium text-xs leading-relaxed mb-6">
+                            {confirmDeleteModal.isBulk
+                                ? `¿Estás seguro de que deseas eliminar los ${selectedIds.length} mensajes seleccionados de tu bandeja de entrada? Esta acción no se puede deshacer.`
+                                : "¿Estás seguro de que deseas eliminar este mensaje de tu bandeja de entrada? Esta acción no se puede deshacer."}
+                        </p>
+                        <div className="flex gap-3 w-full">
+                            <button
+                                onClick={() => setConfirmDeleteModal({ isOpen: false, targetId: null, isBulk: false })}
+                                className="flex-1 py-3 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors border border-gray-200/50 cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-colors shadow-md hover:shadow-lg cursor-pointer"
+                            >
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -44,11 +44,12 @@ export const updateUserProfile = async (req, res) => {
 
     try {
         if (req.file) {
-            const fileBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-            const uploadRes = await cloudinary.uploader.upload(fileBase64, {
-                folder: 'pilas_perfiles'
-            });
-            fotoUrl = uploadRes.secure_url;
+            fotoUrl = req.file.path;
+        } else if (fotoUrl === undefined || fotoUrl === null) {
+            const [currentUserRows] = await db.query('SELECT profile_photo_url FROM Users WHERE id = ?', [id]);
+            if (currentUserRows.length > 0) {
+                fotoUrl = currentUserRows[0].profile_photo_url;
+            }
         }
 
         const query = 'UPDATE Users SET bio = ?, current_semester = ?, profile_photo_url = ? WHERE id = ?';
@@ -152,7 +153,7 @@ export const getAllMentors = async (req, res) => {
     try {
         const { exclude } = req.query;
         let query = `
-            SELECT u.id, u.full_name AS nombre, '' AS apellidos, u.career, u.profile_photo_url,
+            SELECT u.id, u.full_name AS nombre, '' AS apellidos, u.career, u.profile_photo_url, u.current_semester,
             GROUP_CONCAT(s.name SEPARATOR ', ') AS materias_nombres
             FROM Users u
             LEFT JOIN Mentor_Subjects ms ON u.id = ms.mentor_id

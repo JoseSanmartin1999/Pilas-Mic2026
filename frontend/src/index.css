@@ -21,3 +21,18 @@
     @apply text-gray-600 font-medium hover:text-pilas-blue transition-colors relative after:content-[''] after:absolute after:w-0 after:h-0.5 after:bg-pilas-gold after:left-0 after:-bottom-1 hover:after:w-full after:transition-all;
   }
 }
+
+@keyframes slide-in {
+  from {
+    transform: translateY(-1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

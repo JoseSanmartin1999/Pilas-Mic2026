@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useNotification } from '../context/NotificationContext';
 
 const Profile = () => {
+  const { showNotification } = useNotification();
+  const navigate = useNavigate();
   const { id } = useParams();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,7 @@ const Profile = () => {
         setEditData({
           bio: res.data.bio || '',
           current_semester: res.data.current_semester || '',
-          materias: res.data.materias_ids || [] // IDs para los checkboxes
+          materias: res.data.materias ? res.data.materias.map(m => m.id) : []
         });
 
         // Cargamos todas las materias disponibles para el modal (RF#007)
@@ -57,7 +60,7 @@ const Profile = () => {
   const handlePactarTutoria = async (e) => {
     e.preventDefault();
     if (!mentorshipData.subject_id || !mentorshipData.date || !mentorshipData.time || !mentorshipData.objectives.trim()) {
-      alert("Por favor completa todos los campos obligatorios");
+      showNotification("Por favor completa todos los campos obligatorios", "warning");
       return;
     }
 
@@ -76,7 +79,7 @@ const Profile = () => {
       };
 
       await axios.post('http://localhost:3000/api/mentorships', payload);
-      alert("¡Tutoría solicitada exitosamente!");
+      showNotification("¡Tutoría solicitada exitosamente!", "success");
       setShowMentorshipModal(false);
       setMentorshipData({ 
         subject_id: '', 
@@ -89,7 +92,7 @@ const Profile = () => {
       });
     } catch (err) {
       console.error(err);
-      alert("Hubo un error al solicitar la tutoría");
+      showNotification("Hubo un error al solicitar la tutoría", "error");
     }
   };
 
@@ -107,10 +110,13 @@ const Profile = () => {
     data.append('bio', editData.bio);
     data.append('current_semester', editData.current_semester);
     data.append('materias', JSON.stringify(editData.materias));
+    data.append('profile_photo_url', user.profile_photo_url || '');
     if (nuevaFoto) data.append('foto_perfil', nuevaFoto);
 
     try {
       const res = await axios.put(`http://localhost:3000/api/users/profile/${id}`, data);
+
+      const updatedMaterias = res.data.materias || [];
 
       // Actualizamos el estado global con la respuesta del servidor (RF#003)
       setUser({
@@ -118,13 +124,18 @@ const Profile = () => {
         bio: editData.bio,
         current_semester: editData.current_semester,
         profile_photo_url: res.data.fotoUrl || user.profile_photo_url,
-        materias: res.data.materias || user.materias
+        materias: updatedMaterias
       });
 
+      setEditData(prev => ({
+        ...prev,
+        materias: updatedMaterias.map(m => m.id)
+      }));
+
       setShowModal(false);
-      alert("¡Perfil actualizado con éxito!");
+      showNotification("¡Perfil actualizado con éxito!", "success");
     } catch (err) {
-      alert("Error al actualizar el perfil");
+      showNotification("Error al actualizar el perfil", "error");
     }
   };
 

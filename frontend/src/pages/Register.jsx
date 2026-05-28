@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import logo from '../assets/logo.png'; // Ruta corregida a tus assets
+import { useNotification } from '../context/NotificationContext';
 
 const Register = () => {
+    const { showNotification } = useNotification();
     const [formData, setFormData] = useState({
         full_name: '', email: '', password: '', confirmPassword: '', role: 'APRENDIZ',
         institution: 'ESPE', career: 'Software', student_id: '', current_semester: 1, bio: ''
@@ -44,12 +46,12 @@ const Register = () => {
         e.preventDefault();
 
         if (!validatePassword(formData.password)) {
-            alert("La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&.#).");
+            showNotification("La contraseña debe tener al menos 8 caracteres, incluyendo una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&.#).", "warning");
             return;
         }
 
         if (formData.password !== formData.confirmPassword) {
-            alert("Las contraseñas no coinciden");
+            showNotification("Las contraseñas no coinciden", "warning");
             return;
         }
 
@@ -73,11 +75,11 @@ const Register = () => {
             await axios.post('http://localhost:3000/api/auth/register', formDataPayload, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            alert("Registro exitoso");
+            showNotification("Registro exitoso", "success");
         } catch (err) {
             console.error("Error en registro", err.response?.data || err.message);
             const serverMsg = err.response?.data?.message || err.response?.data?.error?.message || err.message;
-            alert("Error en registro: " + serverMsg);
+            showNotification("Error en registro: " + serverMsg, "error");
         }
     };
 

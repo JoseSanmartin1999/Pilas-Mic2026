@@ -9,6 +9,7 @@ const Login = ({ setAuth }) => {
     const [credentials, setCredentials] = useState({ email: '', password: '' });
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     const navigate = useNavigate();
 
     const handleChange = ({ target: { name, value } }) => {
@@ -16,7 +17,12 @@ const Login = ({ setAuth }) => {
     };
 
     const handleSuccessfulLogin = (user) => {
-        localStorage.setItem('user', JSON.stringify(user));
+        if (rememberMe) {
+            localStorage.setItem('user', JSON.stringify(user));
+        } else {
+            sessionStorage.setItem('user', JSON.stringify(user));
+        }
+        
         if (setAuth) {
             setAuth({ isLogged: true, role: user.role });
         }
@@ -67,7 +73,7 @@ const Login = ({ setAuth }) => {
 
                     {error && <ErrorMessage message={error} />}
 
-                    <LoginActions />
+                    <LoginActions rememberMe={rememberMe} setRememberMe={setRememberMe} />
 
                     <div>
                         <button
@@ -102,10 +108,15 @@ const ErrorMessage = ({ message }) => (
     </p>
 );
 
-const LoginActions = () => (
+const LoginActions = ({ rememberMe, setRememberMe }) => (
     <div className="flex items-center justify-between text-sm">
         <label className="flex items-center cursor-pointer">
-            <input type="checkbox" className="h-4 w-4 text-pilas-blue border-gray-300 rounded focus:ring-pilas-gold" />
+            <input 
+                type="checkbox" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-pilas-blue border-gray-300 rounded focus:ring-pilas-gold cursor-pointer" 
+            />
             <span className="ml-2 block text-gray-900">Recordarme</span>
         </label>
         <Link to="/forgot-password" className="font-medium text-pilas-blue hover:text-pilas-gold focus:outline-none focus:underline">
