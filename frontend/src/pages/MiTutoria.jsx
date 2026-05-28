@@ -20,7 +20,7 @@ const MiTutoria = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
     useEffect(() => {
         if (!currentUser?.id) return;

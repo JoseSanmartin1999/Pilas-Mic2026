@@ -8,7 +8,7 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
     const [counts, setCounts] = useState({ pendingSolicitudes: 0, newInboxMessages: 0 });
     const navigate = useNavigate();
 
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
     useEffect(() => {
         if (isAuthenticated && currentUser.id) {
@@ -61,6 +61,7 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
                                 <Link to="/mi-tutoria" className="nav-link relative">
                                     MiTutoría
                                 </Link>
+                                <Link to="/calendario" className="nav-link">Calendario</Link>
                                 <Link to="/mensajes" className="nav-link relative">
                                     Bandeja de Entrada
                                     <Badge count={counts.newInboxMessages} />
@@ -71,7 +72,7 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
                                         <Badge count={counts.pendingSolicitudes} />
                                     </Link>
                                 )}
-                                <Link to="/logros" className="nav-link">Logros</Link>
+                                <Link to="/recompensas" className="nav-link">Recompensas</Link>
                                 {userRole === 'APRENDIZ' && (
                                     <Link to="/registro-tutor" className="text-pilas-gold font-bold hover:text-blue-900">Hazte Tutor</Link>
                                 )}
@@ -98,7 +99,7 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
 
                                 {showDropdown && (
                                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-xl py-2 border border-gray-100">
-                                        <Link to={`/profile/${JSON.parse(localStorage.getItem('user'))?.id || ''}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-pilas-blue hover:text-white">Mi Perfil</Link>
+                                        <Link to={`/profile/${currentUser?.id || ''}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-pilas-blue hover:text-white">Mi Perfil</Link>
                                         <button
                                             onClick={() => {
                                                 setShowDropdown(false);

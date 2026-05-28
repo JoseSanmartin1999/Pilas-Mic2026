@@ -30,13 +30,18 @@ const Profile = () => {
   const [allSubjects, setAllSubjects] = useState([]);
 
   // Control de accesos
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const isOwnProfile = String(currentUser.id) === String(id);
+  const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+  const profileId = id || currentUser.id;
+  const isOwnProfile = String(currentUser.id) === String(profileId);
 
   useEffect(() => {
+    if (!profileId) {
+      setLoading(false);
+      return;
+    }
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`http://localhost:3000/api/users/profile/${id}`);
+        const res = await axios.get(`http://localhost:3000/api/users/profile/${profileId}`);
         setUser(res.data);
         // Inicializamos los datos de edición con el formato correcto
         setEditData({
@@ -55,7 +60,7 @@ const Profile = () => {
       }
     };
     fetchProfile();
-  }, [id]);
+  }, [profileId]);
 
   const handlePactarTutoria = async (e) => {
     e.preventDefault();

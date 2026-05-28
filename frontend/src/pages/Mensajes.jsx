@@ -16,11 +16,15 @@ const Mensajes = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, targetId: null, isBulk: false });
 
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
     useEffect(() => {
-        fetchResponses();
-    }, []);
+        if (currentUser.id) {
+            fetchResponses();
+        } else {
+            setLoading(false);
+        }
+    }, [currentUser.id]);
 
     const fetchResponses = async () => {
         try {

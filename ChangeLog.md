@@ -2,6 +2,51 @@
 
 Este documento registra las mejoras y cambios realizados en el sistema de tutorías para optimizar la coordinación entre mentores y alumnos.
 
+## [2026-05-28] - Calendario, Recompensas Gamificadas, Notificaciones Toast, Selección Múltiple y Corrección de Bugs
+
+### Frontend
+- **Calendario de Tutorías Aceptadas (`Calendario.jsx` [NEW], `App.jsx`)**:
+    - Vista premium de grilla mensual interactiva con indicadores dorados para las tutorías confirmadas (`status === 'ACEPTADA'`).
+    - Panel lateral de detalles que despliega horarios, asignaturas, objetivos y enlaces virtuales (Meet, Teams, Zoom con soporte de copiado de contraseñas e ID).
+- **Tablero de Recompensas Gamificadas (`Recompensas.jsx` [NEW], `App.jsx`)**:
+    - Sistema interactivo con saldo de ESPE-Coins, nivel y progreso de XP del usuario.
+    - Cuadrícula de insignias con estados desbloqueados y bloqueados en escala de grises.
+    - Tienda virtual de beneficios con validación de saldo, popup de código único y notificaciones Toast al canjear cupones de la ESPE.
+- **Buscador de Mentores (`BuscarTutor.jsx`)**:
+    - Corregido el bug donde el usuario logueado aparecía listado en su propia búsqueda de tutores, extrayendo el ID de sesión híbrida (localStorage o sessionStorage) y agregando filtros en frontend y backend.
+- **Enrutamiento y Perfil Estudiantil (`App.jsx` & `Profile.jsx`)**:
+    - Agregado soporte para la ruta `/profile` sin parámetro de ID, redirigiendo de manera inteligente al perfil del usuario autenticado (haciendo uso de sessionStorage o localStorage).
+- **Resolución General de Sesión Estudiantil Híbrida (`Mensajes.jsx`, `Solicitudes.jsx`, `MiTutoria.jsx`, `Calendario.jsx`, `Recompensas.jsx`, `Navbar.jsx`)**:
+    - Se corrigió de raíz el error sistémico que causaba que la bandeja de entrada (`/mensajes`), la vista de solicitudes (`/solicitudes`), el espacio de trabajo (`/mi-tutoria`), el calendario (`/calendario`) y la barra de navegación no cargaran información del usuario al iniciar sesión sin tildar "Recordarme" (sesión guardada en `sessionStorage` en lugar de `localStorage`).
+    - Todos los componentes ahora resuelven el `currentUser` consultando ambos espacios de almacenamiento de forma segura.
+    - Se optimizaron y reactivaron los hooks `useEffect` para depender de `currentUser.id`, asegurando cargas precisas de datos y previniendo llamadas fallidas con valores `undefined`.
+- **Servicio de Notificación Toast Premium (`NotificationContext.jsx` [NEW], `App.jsx` & `index.css`)**:
+    - Creación de un sistema global de alertas flotantes en pantalla (`useNotification`) con diseño glassmorphism adaptativo y soporte para cuatro estados visuales: éxito, error, advertencia e información.
+    - Definición de fotogramas clave `@keyframes slide-in` y clase CSS de animación en `index.css`.
+    - Eliminación absoluta de las llamadas nativas e intrusivas a `alert()` de todo el proyecto, sustituyéndolas por toasts modernos en `Profile.jsx`, `Register.jsx`, `Solicitudes.jsx`, `Mensajes.jsx` y `TopBar.jsx`.
+- **Bandeja de Mensajes (`Mensajes.jsx`)**:
+    - Incorporación de casillas de verificación (checkboxes) individuales y controles de selección masiva ("Todos", "Desmarcar") para posibilitar la eliminación en masa (bulk delete) de notificaciones.
+    - Creación de un modal de confirmación de borrado en pantalla con estilo premium que reemplaza el diálogo nativo `window.confirm()`.
+- **Buscador de Mentores (`BuscarTutor.jsx`)**:
+    - Rediseño general con una interfaz de usuario espectacular (UI/UX): tarjetas interactivas con efectos hover y escala 3D, indicador de disponibilidad en línea, puntuación mediante estrellas y etiquetas estilizadas de materias.
+    - Integración de píldoras de filtrado dinámico por semestres (del `1°` al `8°` nivel).
+    - Sistema de ordenamiento flexible por semestre (ascendente/descendente), nombre y puntuación.
+    - Se agregó un badge flotante `🎓 X° Nivel` en cada tarjeta de tutor.
+- **Flujo de Acceso y Persistencia (`Login.jsx` & `App.jsx`)**:
+    - Sincronización del checkbox "Recordarme" con el estado interno de React.
+    - Implementación de persistencia híbrida: almacenamiento en `localStorage` si se marca "Recordarme" (permanente) o en `sessionStorage` si no se marca (temporal, expira al cerrar la pestaña/navegador).
+- **Gestión de Perfil (`Profile.jsx`)**:
+    - Se solucionó un bug crítico donde se eliminaban las materias impartidas al guardar cambios, corrigiendo la inicialización de los IDs de materias dictadas.
+    - Se resolvió el bug que sobreescribía la foto de perfil del usuario a `null` si este no seleccionaba una nueva imagen en el modal, enviando la URL actual por defecto en el payload.
+
+### Backend
+- **Controlador de Usuarios (`userController.js`)**:
+    - Corregido el bug `500 (Internal Server Error)` al actualizar la foto de perfil, simplificando la lógica para usar directamente `req.file.path` proveído por el middleware de Cloudinary.
+    - Se implementó un fallback de seguridad en la base de datos para recuperar y preservar la foto actual del usuario si no se proporciona una nueva ruta ni se carga un archivo, protegiendo contra pérdida accidental de imágenes.
+    - Agregado el campo `u.current_semester` a la consulta de `getAllMentors` para posibilitar el filtrado y ordenado por niveles en el cliente.
+
+---
+
 ## [2026-05-27] - Recuperación de Contraseña y Notificaciones por Correo
 
 ### Frontend

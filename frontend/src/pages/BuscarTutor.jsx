@@ -15,7 +15,7 @@ const BuscarTutor = () => {
     useEffect(() => {
         const fetchMentors = async () => {
             try {
-                const currentUser = JSON.parse(localStorage.getItem('user'));
+                const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
                 const excludeParam = currentUser?.id ? `?exclude=${currentUser.id}` : '';
                 const res = await axios.get(`http://localhost:3000/api/users/mentors${excludeParam}`);
                 setMentors(res.data);
@@ -32,6 +32,11 @@ const BuscarTutor = () => {
     // Lógica de filtrado y ordenación
     const filteredAndSortedMentors = mentors
         .filter(m => {
+            const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+            if (currentUser?.id && String(m.id) === String(currentUser.id)) {
+                return false;
+            }
+
             // Filtrado por texto (nombre o materias)
             const nombreCompleto = m.nombre || '';
             const matchesText = 

@@ -13,11 +13,15 @@ const Solicitudes = () => {
     const [reprogramReason, setReprogramReason] = useState('');
     const [meetingData, setMeetingData] = useState({ meeting_link: '', zoom_code: '', zoom_password: '' });
 
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
     useEffect(() => {
-        fetchMentorships();
-    }, []);
+        if (currentUser.id) {
+            fetchMentorships();
+        } else {
+            setLoading(false);
+        }
+    }, [currentUser.id]);
 
     const fetchMentorships = async () => {
         try {

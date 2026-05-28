@@ -10,6 +10,8 @@ import Profile from './pages/Profile';
 import Mensajes from './pages/Mensajes';
 import Solicitudes from './pages/Solicitudes';
 import MiTutoria from './pages/MiTutoria';
+import Calendario from './pages/Calendario';
+import Recompensas from './pages/Recompensas';
 import Footer from './components/Footer';
 
 import { NotificationProvider } from './context/NotificationContext';
@@ -42,9 +44,12 @@ const AppContent = ({ auth, setAuth }) => {
               Ejemplo: /profile/1
           */}
           <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/mensajes" element={<Mensajes />} />
           <Route path="/solicitudes" element={<Solicitudes />} />
           <Route path="/mi-tutoria" element={<MiTutoria />} />
+          <Route path="/calendario" element={<Calendario />} />
+          <Route path="/recompensas" element={<Recompensas />} />
 
           {/* Ruta comodín para manejar errores 404 */}
           <Route path="*" element={<div className="text-center py-20">404 - Página no encontrada</div>} />
