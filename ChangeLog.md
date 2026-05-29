@@ -2,6 +2,50 @@
 
 Este documento registra las mejoras y cambios realizados en el sistema de tutorías para optimizar la coordinación entre mentores y alumnos.
 
+## [2026-05-29] - Repositorio de Materiales del Workspace
+
+### Frontend
+- **Repositorio de Materiales (`RepositoryView.jsx` [NEW], `WorkspaceLayout.jsx`, `LeftSidebar.jsx`)**:
+    - Implementación completa de la sección **Repositorio** dentro del workspace de MiTutoría, inspirada en Moodle, con sistema de vistas diferenciadas por rol:
+        - **Vista Mentor (editor)**: Subida de archivos con zona de drag & drop y previsualización, campos de título (obligatorio) y descripción (opcional), barra de progreso de upload con porcentaje, edición inline de título/descripción, reemplazo de archivo manteniendo la metadata, y eliminación con modal de confirmación.
+        - **Vista Aprendiz (solo lectura)**: Navegación del catálogo de materiales sin acciones de edición, previsualización directa de imágenes (lightbox) y videos (reproductor embebido con controles), y botón de descarga destacado para documentos.
+    - **Barra de almacenamiento visual**: Indicador de progreso que muestra `X MB / 300 MB` con gradiente de color adaptativo (verde → amarillo → rojo) y advertencia automática cuando el espacio supera el 80%.
+    - **Sistema de filtrado y búsqueda**: Búsqueda por título en tiempo real, filtros por tipo de archivo (Imágenes, Videos, Documentos), y ordenamiento por fecha, nombre o tamaño.
+    - **Grid de materiales con thumbnails**: Tarjetas con previsualización de imágenes inline, íconos por tipo de archivo, badges de categoría, y animaciones de entrada escalonadas.
+    - **Estado vacío diferenciado**: Ilustración e instrucciones distintas para mentor (invitación a subir) y aprendiz (aviso de espera).
+    - **Skeleton loading**: Animación de carga elegante con placeholders mientras se obtienen los datos.
+    - Se actualizó el `WorkspaceLayout.jsx` para renderizar `RepositoryView` cuando se selecciona el módulo "Repositorio" en lugar del placeholder.
+    - Se marcó el módulo "Repositorio" como activo en el `LeftSidebar.jsx`, eliminando el badge "Soon".
+
+### Backend
+- **Configuración de Cloudinary para Repositorio (`cloudinaryRepository.js` [NEW])**:
+    - Nuevo módulo de Multer con almacenamiento en memoria y subida manual a Cloudinary, soportando `resource_type` dinámico (`image`, `video`, `raw`) según la extensión del archivo.
+    - Filtro de tipos permitidos: imágenes (jpg, png, gif, webp, svg), videos (mp4, webm, mov), y documentos (pdf, doc, docx, ppt, pptx, xls, xlsx, zip, rar, txt, py, java, js, cpp, c, ts, html, css).
+    - Límite de 50MB por archivo individual. Archivos organizados en carpetas `pilas_repository/{mentorshipId}` en Cloudinary.
+- **Controlador de Repositorio (`repositoryController.js` [NEW])**:
+    - CRUD completo con 6 endpoints: listar materiales, consultar almacenamiento, subir material, editar metadata, reemplazar archivo y eliminar material.
+    - Control de acceso basado en roles: solo el mentor de la tutoría puede subir, editar y eliminar; ambos participantes pueden listar y visualizar.
+    - Límite de almacenamiento de **300MB por tutoría**, validado antes de cada subida sumando `file_size` en la base de datos.
+    - Limpieza automática de assets en Cloudinary al eliminar o reemplazar archivos, usando `cloudinary_public_id` y `cloudinary_resource_type`.
+- **Rutas del Repositorio (`repositoryRoutes.js` [NEW])**:
+    - `GET /api/repository/:mentorshipId` — Listar materiales de una tutoría.
+    - `GET /api/repository/:mentorshipId/storage` — Obtener uso de almacenamiento.
+    - `POST /api/repository/:mentorshipId` — Subir nuevo material (multipart/form-data).
+    - `PUT /api/repository/material/:materialId` — Editar título y descripción.
+    - `PUT /api/repository/material/:materialId/file` — Reemplazar archivo.
+    - `DELETE /api/repository/material/:materialId` — Eliminar material.
+- **Aplicación (`app.js`)**:
+    - Se montaron las rutas del repositorio en `/api/repository`.
+
+### Base de Datos
+- **Tabla `Repository_Materials` [NEW] (`create_repository_materials.sql`)**:
+    - Campos: `id`, `mentorship_id`, `uploader_id`, `title`, `description`, `file_url`, `file_name`, `file_size`, `file_type`, `mime_type`, `cloudinary_public_id`, `cloudinary_resource_type`, `created_at`, `updated_at`.
+    - Índices en `mentorship_id` y `uploader_id` para consultas rápidas.
+- **Script de migración (`runMigration.js` [NEW])**:
+    - Ejecutor genérico de archivos SQL para aplicar migraciones de esquema.
+
+---
+
 ## [2026-05-28] - Calendario, Recompensas Gamificadas, Notificaciones Toast, Selección Múltiple y Corrección de Bugs
 
 ### Frontend
@@ -71,6 +115,57 @@ Este documento registra las mejoras y cambios realizados en el sistema de tutor�
 
 ---
 
+## [2026-04-23] - Espacio de Trabajo MiTutoría y Chat en Tiempo Real
+
+### Frontend
+- **Espacio de Trabajo MiTutoría (`MiTutoria.jsx` [NEW], `App.jsx`, `Navbar.jsx`)**:
+    - Implementación del módulo completo **MiTutoría** con layout tipo Slack/Discord: sidebar izquierdo de navegación modular, área de contenido central dinámica, y panel lateral derecho colapsable de estatus.
+    - Flujo inteligente de entrada: si el usuario tiene una sola tutoría aceptada, ingresa directamente al workspace; si tiene varias, se muestra un selector de tarjetas con indicador de estado activo.
+    - Estado vacío elegante cuando no hay tutorías aceptadas, con redirección al buscador de mentores.
+    - Configuración de la ruta `/mi-tutoria` en el enrutador con supresión del footer y bloqueo de scroll global para la experiencia inmersiva.
+- **Layout del Workspace (`WorkspaceLayout.jsx` [NEW])**:
+    - Contenedor principal con estructura `[LeftSidebar] | [TopBar + MainCanvas] | [RightSidebar]`.
+    - Animación `fadeSlideIn` al cambiar de módulo en el canvas principal.
+    - Placeholders configurables para módulos futuros (Repositorio, Tablón de Anuncios, Hoja de Ruta, Retos).
+- **Sidebar Izquierdo (`LeftSidebar.jsx` [NEW])**:
+    - Barra lateral de navegación con 5 módulos de enfoque: Canal Directo, Repositorio, Tablón de Anuncios, Hoja de Ruta, y Retos.
+    - Indicador visual de módulo activo con barra lateral dorada, efectos hover y badges "Soon" para secciones pendientes.
+    - Footer con mini-perfil del mentor y estado de conexión.
+- **Barra Superior (`TopBar.jsx` [NEW])**:
+    - Cabecera dinámica mostrando la materia, nombre del compañero con su rol (Mentor/Aprendiz), barra de progreso simulada (semana X de 16), y botones de acción (Marcar Hito, Finalizar).
+- **Panel Lateral Derecho (`RightSidebar.jsx` [NEW])**:
+    - Panel colapsable con mini-perfil del usuario, información del compañero, racha de semanas activa con diseño gradiente, y cuadrícula de insignias bloqueadas con tooltips.
+- **Placeholder de Secciones (`PlaceholderView.jsx` [NEW])**:
+    - Componente reutilizable para módulos en progreso con ícono pulsante, patrón de fondo punteado y badge "En Progreso".
+- **Chat en Tiempo Real (`ChatView.jsx` [NEW])**:
+    - Chat bidireccional con **Socket.IO** integrado al workspace. Conexión automática a la sala de la tutoría (`room_{mentorshipId}`).
+    - Carga de historial completo de mensajes vía REST (`GET /api/chat/:mentorshipId`) al abrir el canal.
+    - Burbujas de mensaje estilo iMessage: mensajes propios (azul navy, alineados a la derecha) y del compañero (blanco con borde, alineados a la izquierda) con avatares, nombres y timestamps.
+    - Agrupación inteligente de mensajes consecutivos del mismo remitente dentro de ventanas de 5 minutos.
+    - Separadores de fecha contextuales ("Hoy", "Ayer", o fecha completa).
+    - Input auto-expandible con soporte para `Enter` (enviar) y `Shift+Enter` (nueva línea).
+    - Indicador de conexión en tiempo real (punto verde pulsante "Conectado" / rojo "Sin conexión").
+    - Auto-scroll suave al último mensaje y estado vacío invitando a iniciar la conversación.
+
+### Backend
+- **Backend del Chat en Tiempo Real (`chatSocket.js` [NEW], `chatService.js` [NEW], `ChatMessage.js` [NEW], `chatRoutes.js` [NEW])**:
+    - Modelo Mongoose `ChatMessage` almacenado en MongoDB con campos `mentorship_id`, `sender_id`, `message` y timestamps automáticos. Índice en `mentorship_id` para consultas rápidas del historial.
+    - Servicio `chatService.js` con funciones `createMessage` (persistir mensaje) y `getChatHistory` (obtener historial ordenado cronológicamente).
+    - Socket handler `chatSocket.js` que registra eventos de conexión/desconexión, unión a salas por tutoría (`join_mentorship_room`), y difusión de mensajes (`send_message` → `receive_message`).
+    - Endpoint REST `GET /api/chat/:mentorshipId` para obtener el historial de mensajes de una tutoría.
+- **Configuración de MongoDB (`mongo.js`)**:
+    - Conexión a MongoDB Atlas con soporte de DNS personalizado para resolver URIs `mongodb+srv://` en entornos con restricciones de red.
+- **Servidor (`server.js`)**:
+    - Integración de `socket.io` con el servidor HTTP de Express. Se registra el handler de chat al inicializar y se configuran las opciones de CORS para WebSockets.
+- **Desacoplamiento del backend de chat**:
+    - Se refactorizó la lógica de chat separando el socket handler, el servicio de datos y las rutas REST en módulos independientes para mayor mantenibilidad.
+
+### Base de Datos
+- **MongoDB (Atlas)**:
+    - Colección `chatmessages` con esquema Mongoose indexado por `mentorship_id`.
+
+---
+
 ## [2026-04-21] - Reprogramación, Visualización de Tutorías y Gestión de Notificaciones
 
 ### Frontend
@@ -125,4 +220,3 @@ Este documento registra las mejoras y cambios realizados en el sistema de tutor�
     - Se añadieron columnas: `modality`, `meeting_place`, `platform`, `meeting_link`, `zoom_code` y `zoom_password`.
 
 ---
-

@@ -4,6 +4,7 @@ import LeftSidebar from './LeftSidebar';
 import ChatView from './ChatView';
 import RightSidebar from './RightSidebar';
 import PlaceholderView from './PlaceholderView';
+import RepositoryView from './RepositoryView';
 
 /**
  * WorkspaceLayout — Contenedor principal del espacio de trabajo
@@ -40,6 +41,10 @@ const WorkspaceLayout = ({ mentorship, currentUser }) => {
     const renderMainContent = () => {
         if (activeModule === 'chat') {
             return <ChatView mentorship={mentorship} currentUser={currentUser} />;
+        }
+
+        if (activeModule === 'repositorio') {
+            return <RepositoryView mentorship={mentorship} currentUser={currentUser} />;
         }
 
         const config = PLACEHOLDER_CONFIGS[activeModule] || {

@@ -18,7 +18,7 @@ const MODULES = [
         icon: '📚',
         label: 'Repositorio',
         sublabel: 'Materiales y PDFs',
-        active: false,
+        active: true,
     },
     {
         id: 'tablon',
