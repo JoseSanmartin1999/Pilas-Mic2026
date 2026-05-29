@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNotification } from '../context/NotificationContext';
+import config from '../config/constants.json';
 
 const Calendario = () => {
     const { showNotification } = useNotification();
@@ -11,12 +12,9 @@ const Calendario = () => {
 
     const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
-    // Nombres de meses y días en español
-    const MESES = [
-        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ];
-    const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+    // Nombres de meses y días en español desde archivo de configuración
+    const MESES = config.MONTHS;
+    const DIAS_SEMANA = config.WEEKDAYS;
 
     useEffect(() => {
         if (currentUser.id) {
@@ -28,7 +26,7 @@ const Calendario = () => {
 
     const fetchMentorships = async () => {
         try {
-            const res = await axios.get(`http://localhost:3000/api/mentorships/user/${currentUser.id}`);
+            const res = await axios.get(`${config.API_URL}/api/mentorships/user/${currentUser.id}`);
             // Filtrar solo las aceptadas
             const aceptadas = res.data.filter(m => m.status === 'ACEPTADA');
             setMentorships(aceptadas);
@@ -326,15 +324,23 @@ const Calendario = () => {
 
                                             {/* Modalidad y Enlaces */}
                                             <div className="pl-2">
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold mb-2">
-                                                    <span>📍</span> Modalidad:
-                                                    <span className={`px-2 py-0.5 rounded-full font-extrabold ${
-                                                        tutoria.modality === 'Online' 
-                                                            ? 'bg-sky-550/10 text-sky-600 bg-sky-50' 
-                                                            : 'bg-emerald-550/10 text-emerald-600 bg-emerald-50'
-                                                    }`}>
-                                                        {tutoria.modality}
-                                                    </span>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-2 mb-3">
+                                                    <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold">
+                                                        <span>📍</span> Modalidad:
+                                                        <span className={`px-2 py-0.5 rounded-full font-extrabold ${
+                                                            tutoria.modality === 'Online' 
+                                                                ? 'bg-sky-550/10 text-sky-600 bg-sky-50' 
+                                                                : 'bg-emerald-550/10 text-emerald-600 bg-emerald-50'
+                                                        }`}>
+                                                            {tutoria.modality}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold">
+                                                        <span>⏳</span> Duración:
+                                                        <span className="px-2 py-0.5 rounded-full font-extrabold bg-amber-50 text-amber-600 border border-amber-200/30">
+                                                            {tutoria.estimated_duration || '1 hora'}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {tutoria.modality === 'Online' ? (

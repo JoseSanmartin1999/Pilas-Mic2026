@@ -333,6 +333,7 @@ const Mensajes = () => {
                                                     <div className="grid grid-cols-2 gap-4">
                                                         <input 
                                                             type="date" 
+                                                            min={new Date().toISOString().split('T')[0]}
                                                             className="px-5 py-3 bg-white rounded-2xl focus:ring-2 focus:ring-pilas-gold outline-none font-bold text-[#1a3a5a] border border-pilas-gold/20"
                                                             onChange={(e) => setNewDate(e.target.value)}
                                                         />
@@ -351,7 +352,16 @@ const Mensajes = () => {
                                                     <div className="flex gap-4">
                                                         <button 
                                                             onClick={() => {
-                                                                if (!newDate || !newTime || !reprogramReason.trim()) return alert("Por favor completa todos los campos");
+                                                                if (!newDate || !newTime || !reprogramReason.trim()) {
+                                                                    return showNotification("Por favor completa todos los campos", "warning");
+                                                                }
+                                                                
+                                                                const now = new Date();
+                                                                const selectedDateTime = new Date(`${newDate}T${newTime}:00`);
+                                                                if (selectedDateTime < now) {
+                                                                    return showNotification("La fecha y hora para reprogramar no pueden ser anteriores a la actual", "warning");
+                                                                }
+
                                                                 handleAction(selectedMessage.id, 'PENDIENTE', {
                                                                     scheduled_date: `${newDate}T${newTime}:00`,
                                                                     reprogramming_reason: reprogramReason,
@@ -407,6 +417,13 @@ const Mensajes = () => {
                                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Modalidad</span>
                                             <span className="bg-gray-50 px-4 py-1.5 rounded-full text-xs font-black text-[#1a3a5a] border border-gray-100 uppercase tracking-tighter">
                                                 {selectedMessage.modality === 'Presencial' ? '📍 Presencial' : '💻 Online'}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Duración Estimada</span>
+                                            <span className="bg-gray-50 px-4 py-1.5 rounded-full text-xs font-black text-[#1a3a5a] border border-gray-100 uppercase tracking-tighter">
+                                                ⏱️ {selectedMessage.estimated_duration || '1 hora'}
                                             </span>
                                         </div>
 

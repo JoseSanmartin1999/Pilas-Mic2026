@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNotification } from '../context/NotificationContext';
+import config from '../config/constants.json';
 
 const Recompensas = () => {
     const { showNotification } = useNotification();
@@ -14,101 +15,9 @@ const Recompensas = () => {
 
     const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
-    // Listado de insignias (Logros)
-    const INSIGNIAS = [
-        {
-            id: 'primera_tutoria',
-            title: 'Primeros Pasos',
-            description: 'Solicitaste o impartiste tu primera tutoría exitosamente.',
-            icon: '🎯',
-            unlocked: true,
-            xpReward: 100
-        },
-        {
-            id: 'cerebro_oro',
-            title: 'Cerebro de Oro',
-            description: 'Acumulaste más de 500 Puntos de Experiencia (XP).',
-            icon: '💡',
-            unlocked: true,
-            xpReward: 250
-        },
-        {
-            id: 'siempre_puntual',
-            title: 'Siempre Puntual',
-            description: 'Tuviste asistencia perfecta a la hora acordada.',
-            icon: '⚡',
-            unlocked: true,
-            xpReward: 150
-        },
-        {
-            id: 'mentor_estrella',
-            title: 'Mentor Estrella',
-            description: 'Imparte más de 5 tutorías virtuales como Mentor de confianza.',
-            icon: '⭐',
-            unlocked: false,
-            xpReward: 500
-        },
-        {
-            id: 'super_aprendiz',
-            title: 'Súper Aprendiz',
-            description: 'Recibe 10 tutorías de tus compañeros para perfeccionar tus materias.',
-            icon: '🎓',
-            unlocked: false,
-            xpReward: 400
-        },
-        {
-            id: 'maestro_espe',
-            title: 'Héroe de la ESPE',
-            description: 'Logra calificar con 5 estrellas en 8 tutorías impartidas.',
-            icon: '🏆',
-            unlocked: false,
-            xpReward: 1000
-        }
-    ];
-
-    // Listado de Cupones en la Tienda
-    const CUPONES = [
-        {
-            id: 'bar_descuento',
-            title: '15% Descuento en Bar ESPE',
-            description: 'Aplica en tu próximo consumo de desayunos o snacks en el bar central del campus.',
-            cost: 60,
-            icon: '☕',
-            category: 'Alimentación'
-        },
-        {
-            id: 'comedor_almuerzo',
-            title: 'Almuerzo Gratis Comedor',
-            description: 'Canjea este cupón por un almuerzo completo gratuito en el comedor universitario.',
-            cost: 150,
-            icon: '🍲',
-            category: 'Alimentación'
-        },
-        {
-            id: 'parqueadero_vip',
-            title: 'Parqueadero VIP (1 Día)',
-            description: 'Acceso reservado a la zona de parqueaderos preferencial por un día completo.',
-            cost: 100,
-            icon: '🚗',
-            category: 'Servicios'
-        },
-        {
-            id: 'termo_oficial',
-            title: 'Termo Oficial ESPE',
-            description: 'Termo metálico premium con el logo grabado de la ESPE. Retirar en Bienestar Estudiantil.',
-            cost: 200,
-            icon: '🥤',
-            category: 'Merchandising'
-        },
-        {
-            id: 'cuaderno_pilas',
-            title: 'Cuaderno Anillado Pilas!',
-            description: 'Cuaderno exclusivo de apuntes con stickers personalizados de la plataforma.',
-            cost: 80,
-            icon: '📓',
-            category: 'Merchandising'
-        }
-    ];
+    // Listado de insignias y cupones desde archivo de configuración centralizado
+    const INSIGNIAS = config.BADGES;
+    const CUPONES = config.COUPONS;
 
     // Lógica para canjear cupón
     const handleRedeem = (cupon) => {

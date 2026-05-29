@@ -8,7 +8,8 @@ const MIGRATIONS = [
     { query: 'ALTER TABLE Mentorships ADD COLUMN apprentice_notified BOOLEAN DEFAULT 0;', column: 'apprentice_notified' },
     { query: 'ALTER TABLE Users ADD COLUMN reset_code VARCHAR(10);', column: 'reset_code' },
     { query: 'ALTER TABLE Users ADD COLUMN reset_code_expires_at TIMESTAMP NULL;', column: 'reset_code_expires_at' },
-    { query: 'ALTER TABLE Mentorships ADD COLUMN is_deleted BOOLEAN DEFAULT 0;', column: 'is_deleted' }
+    { query: 'ALTER TABLE Mentorships ADD COLUMN is_deleted BOOLEAN DEFAULT 0;', column: 'is_deleted' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN estimated_duration VARCHAR(50) DEFAULT "1 hora";', column: 'estimated_duration' }
 ];
 
 async function executeMigrations() {

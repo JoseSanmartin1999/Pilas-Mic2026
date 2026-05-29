@@ -106,6 +106,12 @@ const Solicitudes = () => {
                                                     {m.modality === 'Presencial' ? `📍 Presencial (${m.meeting_place || 'TBD'})` : `💻 Online (${m.platform || 'TBD'})`}
                                                 </span>
                                             </div>
+                                            <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-lg not-italic">
+                                                <span className="text-xs font-black uppercase text-[#1a3a5a] tracking-tighter">Duración:</span>
+                                                <span className="text-xs font-bold text-gray-700">
+                                                    ⏱️ {m.estimated_duration || '1 hora'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -147,6 +153,7 @@ const Solicitudes = () => {
                                                 <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Nueva Fecha</label>
                                                 <input 
                                                     type="date" 
+                                                    min={new Date().toISOString().split('T')[0]}
                                                     className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a] border border-gray-100"
                                                     onChange={(e) => setNewDate(e.target.value)}
                                                 />
@@ -174,6 +181,13 @@ const Solicitudes = () => {
                                         <button 
                                             onClick={() => {
                                                 if (!newDate || !newTime || !reprogramReason.trim()) return showNotification("Por favor completa todos los campos (fecha, hora y motivo)", "warning");
+                                                
+                                                const now = new Date();
+                                                const selectedDateTime = new Date(`${newDate}T${newTime}:00`);
+                                                if (selectedDateTime < now) {
+                                                    return showNotification("La fecha y hora para reprogramar no pueden ser anteriores a la actual", "warning");
+                                                }
+
                                                 handleAction(m.id, 'PENDIENTE', { 
                                                     scheduled_date: `${newDate}T${newTime}:00`,
                                                     reprogramming_reason: reprogramReason,

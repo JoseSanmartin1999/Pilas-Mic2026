@@ -19,7 +19,8 @@ const Profile = () => {
     objectives: '', 
     modality: 'Presencial', 
     meeting_place: '', 
-    platform: '' 
+    platform: '',
+    estimated_duration: '1 hora'
   });
 
   // Estados para la edición (RF#003)
@@ -69,6 +70,14 @@ const Profile = () => {
       return;
     }
 
+    // Validación de fecha y hora futura (RF: no menor a la actual, hora mayor si es el mismo día)
+    const now = new Date();
+    const selectedDateTime = new Date(`${mentorshipData.date}T${mentorshipData.time}:00`);
+    if (selectedDateTime < now) {
+      showNotification("La fecha y hora de la tutoría no pueden ser anteriores a la fecha y hora actual", "warning");
+      return;
+    }
+
     const scheduled_date = `${mentorshipData.date}T${mentorshipData.time}:00`;
 
     try {
@@ -80,7 +89,8 @@ const Profile = () => {
         objectives: mentorshipData.objectives,
         modality: mentorshipData.modality,
         meeting_place: mentorshipData.modality === 'Presencial' ? mentorshipData.meeting_place : null,
-        platform: mentorshipData.modality === 'Online' ? mentorshipData.platform : null
+        platform: mentorshipData.modality === 'Online' ? mentorshipData.platform : null,
+        estimated_duration: mentorshipData.estimated_duration
       };
 
       await axios.post('http://localhost:3000/api/mentorships', payload);
@@ -93,7 +103,8 @@ const Profile = () => {
         objectives: '', 
         modality: 'Presencial', 
         meeting_place: '', 
-        platform: '' 
+        platform: '',
+        estimated_duration: '1 hora'
       });
     } catch (err) {
       console.error(err);
@@ -355,7 +366,7 @@ const Profile = () => {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Fecha</label>
-                  <input type="date" required value={mentorshipData.date} onChange={(e) => setMentorshipData({ ...mentorshipData, date: e.target.value })} className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a]" />
+                  <input type="date" required min={new Date().toISOString().split('T')[0]} value={mentorshipData.date} onChange={(e) => setMentorshipData({ ...mentorshipData, date: e.target.value })} className="w-full px-5 py-3 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#ffcc00] outline-none font-bold text-[#1a3a5a]" />
                 </div>
                 <div>
                   <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Hora</label>
@@ -419,6 +430,23 @@ const Profile = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Rango de Tiempo Estimado (45 min a 2h) */}
+              <div className="space-y-4">
+                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Tiempo estimado de Tutoría</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {['45 min', '1 hora', '1.5 horas', '2 horas'].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setMentorshipData({ ...mentorshipData, estimated_duration: t })}
+                      className={`py-3 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all ${mentorshipData.estimated_duration === t ? 'bg-[#1a3a5a] text-[#ffcc00] shadow-lg scale-105' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <button type="submit" className="w-full py-5 bg-[#1a3a5a] text-[#ffcc00] rounded-[2rem] font-black text-xs uppercase tracking-[0.25em] shadow-xl hover:shadow-[#1a3a5a]/20 hover:scale-[1.02] transition-all">

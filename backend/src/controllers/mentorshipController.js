@@ -1,8 +1,8 @@
 import db from '../config/db.js';
-import { sendMentorshipStatusEmail } from '../services/emailService.js';
+import { sendMentorshipStatusEmail, sendMentorshipReprogramEmail } from '../services/emailService.js';
 
 export const createMentorship = async (req, res) => {
-    const { mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality, meeting_place, platform } = req.body;
+    const { mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality, meeting_place, platform, estimated_duration } = req.body;
 
     if (!mentor_id || !apprentice_id || !subject_id || !scheduled_date) {
         return res.status(400).json({ error: "Faltan campos obligatorios" });
@@ -10,11 +10,11 @@ export const createMentorship = async (req, res) => {
 
     try {
         const query = `
-            INSERT INTO Mentorships (mentor_id, apprentice_id, subject_id, scheduled_date, objectives, status, modality, meeting_place, platform)
-            VALUES (?, ?, ?, ?, ?, 'PENDIENTE', ?, ?, ?)
+            INSERT INTO Mentorships (mentor_id, apprentice_id, subject_id, scheduled_date, objectives, status, modality, meeting_place, platform, estimated_duration)
+            VALUES (?, ?, ?, ?, ?, 'PENDIENTE', ?, ?, ?, ?)
         `;
         
-        const [result] = await db.query(query, [mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality || 'Presencial', meeting_place, platform]);
+        const [result] = await db.query(query, [mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality || 'Presencial', meeting_place, platform, estimated_duration || '1 hora']);
         
         res.status(201).json({
             message: "Tutoría solicitada exitosamente",
@@ -47,6 +47,7 @@ export const getMentorshipsByUser = async (req, res) => {
                 m.reprogramming_reason,
                 m.last_initiator_role,
                 m.apprentice_notified,
+                m.estimated_duration,
                 mentor.full_name as mentor_name,
                 apprentice.full_name as apprentice_name,
                 s.name as subject_name
@@ -83,8 +84,10 @@ export const updateMentorship = async (req, res) => {
     try {
         // Primero obtenemos el estado actual para la lógica de contador y notificaciones
         const [current] = await db.query(`
-            SELECT m.reprogramming_count, m.status, a.email as apprentice_email, a.full_name as apprentice_name, 
-                   mt.full_name as mentor_name, s.name as subject_name
+            SELECT m.reprogramming_count, m.status, 
+                   a.email as apprentice_email, a.full_name as apprentice_name, 
+                   mt.email as mentor_email, mt.full_name as mentor_name, 
+                   s.name as subject_name
             FROM Mentorships m
             JOIN Users a ON m.apprentice_id = a.id
             JOIN Users mt ON m.mentor_id = mt.id
@@ -127,6 +130,37 @@ export const updateMentorship = async (req, res) => {
         params.push(id);
 
         await db.query(query, params);
+        
+        // Enviar correo de propuesta de reprogramación si hay cambio de fecha y se especifica el iniciador
+        if (scheduled_date && last_initiator_role && current.length > 0) {
+            try {
+                if (last_initiator_role === 'MENTOR') {
+                    // El tutor reprograma -> notificar al aprendiz
+                    await sendMentorshipReprogramEmail(
+                        current[0].apprentice_email,
+                        current[0].apprentice_name,
+                        current[0].mentor_name,
+                        current[0].subject_name,
+                        scheduled_date,
+                        reprogramming_reason || 'No especificado',
+                        'MENTOR'
+                    );
+                } else if (last_initiator_role === 'APRENDIZ') {
+                    // El aprendiz reprograma -> notificar al tutor/mentor
+                    await sendMentorshipReprogramEmail(
+                        current[0].mentor_email,
+                        current[0].mentor_name,
+                        current[0].apprentice_name,
+                        current[0].subject_name,
+                        scheduled_date,
+                        reprogramming_reason || 'No especificado',
+                        'APRENDIZ'
+                    );
+                }
+            } catch (err) {
+                console.error("No se pudo enviar el correo de propuesta de reprogramación:", err);
+            }
+        }
         
         // Enviar correo si el estado cambia a ACEPTADA o RECHAZADA
         if (status && (finalStatus === 'ACEPTADA' || finalStatus === 'RECHAZADA') && finalStatus !== current[0].status) {

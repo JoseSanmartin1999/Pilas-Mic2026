@@ -5,6 +5,14 @@ Este documento registra las mejoras y cambios realizados en el sistema de tutor�
 ## [2026-05-28] - Calendario, Recompensas Gamificadas, Notificaciones Toast, Selección Múltiple y Corrección de Bugs
 
 ### Frontend
+- **Validación Estricta de Fecha y Hora Futura (`Profile.jsx`, `Solicitudes.jsx`, `Mensajes.jsx`)**:
+    - Se implementó una validación tanto a nivel nativo de HTML como en lógica de JavaScript para impedir la selección de fechas pasadas en la creación de tutorías y reprogramaciones.
+    - Se limitó el atributo `min` de los campos `<input type="date">` a la fecha actual para deshabilitar días anteriores en los selectores del navegador.
+    - Se incorporaron validaciones de hora en JavaScript que permiten pactar tutorías para el mismo día únicamente si la hora seleccionada es posterior a la hora actual.
+- **Centralización de Constantes y Buenas Prácticas (`constants.json` [NEW], `Calendario.jsx`, `Recompensas.jsx`)**:
+    - Se creó un archivo de configuración unificado `constants.json` en `frontend/src/config/` para centralizar las constantes de la aplicación por seguridad y mantenibilidad de código (Clean Code).
+    - Se extrajeron a la configuración centralizada: la URL base de la API, las plataformas virtuales admitidas, los tiempos de duración elegibles, los nombres de meses y días traducidos, la parametrización de insignias / recompensas académicas y el catálogo completo de cupones de la tienda.
+    - Se actualizaron `Calendario.jsx` y `Recompensas.jsx` para leer sus variables dinámicamente desde este archivo JSON, posibilitando despliegues y ediciones en un único punto.
 - **Calendario de Tutorías Aceptadas (`Calendario.jsx` [NEW], `App.jsx`)**:
     - Vista premium de grilla mensual interactiva con indicadores dorados para las tutorías confirmadas (`status === 'ACEPTADA'`).
     - Panel lateral de detalles que despliega horarios, asignaturas, objetivos y enlaces virtuales (Meet, Teams, Zoom con soporte de copiado de contraseñas e ID).
@@ -16,6 +24,9 @@ Este documento registra las mejoras y cambios realizados en el sistema de tutor�
     - Corregido el bug donde el usuario logueado aparecía listado en su propia búsqueda de tutores, extrayendo el ID de sesión híbrida (localStorage o sessionStorage) y agregando filtros en frontend y backend.
 - **Enrutamiento y Perfil Estudiantil (`App.jsx` & `Profile.jsx`)**:
     - Agregado soporte para la ruta `/profile` sin parámetro de ID, redirigiendo de manera inteligente al perfil del usuario autenticado (haciendo uso de sessionStorage o localStorage).
+- **Tiempo Estimado de Tutoría (`Profile.jsx`, `Solicitudes.jsx`, `Mensajes.jsx`, `Calendario.jsx`)**:
+    - Se integró un selector de duración estimada de tutoría en el modal "Pactar Tutoría" de `Profile.jsx` con opciones de rango entre **45 minutos y 2 horas** ("45 min", "1 hora", "1.5 horas", "2 horas").
+    - Se agregaron tarjetas e indicadores visuales tipo "píldoras" en la bandeja de notificaciones/solicitudes del mentor (`Solicitudes.jsx`), la bandeja de entrada del aprendiz (`Mensajes.jsx`) y el planificador diario (`Calendario.jsx`) para que ambos participantes puedan visualizar y coordinar la duración esperada.
 - **Resolución General de Sesión Estudiantil Híbrida (`Mensajes.jsx`, `Solicitudes.jsx`, `MiTutoria.jsx`, `Calendario.jsx`, `Recompensas.jsx`, `Navbar.jsx`)**:
     - Se corrigió de raíz el error sistémico que causaba que la bandeja de entrada (`/mensajes`), la vista de solicitudes (`/solicitudes`), el espacio de trabajo (`/mi-tutoria`), el calendario (`/calendario`) y la barra de navegación no cargaran información del usuario al iniciar sesión sin tildar "Recordarme" (sesión guardada en `sessionStorage` en lugar de `localStorage`).
     - Todos los componentes ahora resuelven el `currentUser` consultando ambos espacios de almacenamiento de forma segura.
@@ -24,6 +35,15 @@ Este documento registra las mejoras y cambios realizados en el sistema de tutor�
     - Creación de un sistema global de alertas flotantes en pantalla (`useNotification`) con diseño glassmorphism adaptativo y soporte para cuatro estados visuales: éxito, error, advertencia e información.
     - Definición de fotogramas clave `@keyframes slide-in` y clase CSS de animación en `index.css`.
     - Eliminación absoluta de las llamadas nativas e intrusivas a `alert()` de todo el proyecto, sustituyéndolas por toasts modernos en `Profile.jsx`, `Register.jsx`, `Solicitudes.jsx`, `Mensajes.jsx` y `TopBar.jsx`.
+
+### Backend
+- **Notificaciones por Correo de Reprogramación (`emailService.js`, `mentorshipController.js`)**:
+    - Se creó la función `sendMentorshipReprogramEmail` en `emailService.js` para despachar correos electrónicos estilizados informando sobre una propuesta de reprogramación.
+    - El correo notifica la nueva fecha/hora propuesta de forma formateada, la materia en cuestión y el motivo justificado del cambio de fecha.
+    - Se integró esta alerta en `updateMentorship` para notificar al aprendiz (si el tutor propone reprogramar) o al tutor (si el aprendiz es quien inicia la contrapropuesta).
+- **Migración y Estructura de Datos (`migrate.js`, `mentorshipController.js`)**:
+    - Creada migración automática en `migrate.js` para añadir la columna `estimated_duration` a la tabla `Mentorships` de TiDB.
+    - Modificado `mentorshipController.js` para capturar la duración en la creación de tutorías (`createMentorship`) y retornarla en la lectura de tutorías por usuario (`getMentorshipsByUser`).
 - **Bandeja de Mensajes (`Mensajes.jsx`)**:
     - Incorporación de casillas de verificación (checkboxes) individuales y controles de selección masiva ("Todos", "Desmarcar") para posibilitar la eliminación en masa (bulk delete) de notificaciones.
     - Creación de un modal de confirmación de borrado en pantalla con estilo premium que reemplaza el diálogo nativo `window.confirm()`.
