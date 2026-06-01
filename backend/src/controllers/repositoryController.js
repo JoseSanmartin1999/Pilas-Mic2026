@@ -1,0 +1,359 @@
+import db from '../config/db.js';
+import { uploadToCloudinary, deleteFromCloudinary, getFileType } from '../config/cloudinaryRepository.js';
+import path from 'path';
+
+// Límite de almacenamiento por tutoría: 300MB en bytes
+const STORAGE_LIMIT_BYTES = 300 * 1024 * 1024;
+
+/**
+ * Helper: Verificar que el usuario pertenece a la tutoría
+ */
+const verifyMentorshipAccess = async (mentorshipId, userId) => {
+    const [rows] = await db.query(
+        'SELECT id, mentor_id, apprentice_id FROM Mentorships WHERE id = ? AND (mentor_id = ? OR apprentice_id = ?) AND is_deleted = 0',
+        [mentorshipId, userId, userId]
+    );
+    if (rows.length === 0) return null;
+    return rows[0];
+};
+
+/**
+ * Helper: Obtener espacio usado por una tutoría
+ */
+const getUsedStorage = async (mentorshipId) => {
+    const [rows] = await db.query(
+        'SELECT COALESCE(SUM(file_size), 0) as total_size FROM Repository_Materials WHERE mentorship_id = ?',
+        [mentorshipId]
+    );
+    return rows[0].total_size;
+};
+
+/**
+ * GET /api/repository/:mentorshipId
+ * Listar todos los materiales de una tutoría
+ */
+export const getMaterials = async (req, res) => {
+    const { mentorshipId } = req.params;
+    const userId = req.query.userId;
+
+    try {
+        // Verificar acceso
+        const mentorship = await verifyMentorshipAccess(mentorshipId, userId);
+        if (!mentorship) {
+            return res.status(403).json({ error: 'No tienes acceso a esta tutoría' });
+        }
+
+        const [materials] = await db.query(
+            `SELECT rm.*, u.full_name as uploader_name
+             FROM Repository_Materials rm
+             JOIN Users u ON rm.uploader_id = u.id
+             WHERE rm.mentorship_id = ?
+             ORDER BY rm.created_at DESC`,
+            [mentorshipId]
+        );
+
+        res.json(materials);
+    } catch (error) {
+        console.error('Error obteniendo materiales:', error);
+        res.status(500).json({ error: 'Error al obtener los materiales' });
+    }
+};
+
+/**
+ * GET /api/repository/:mentorshipId/storage
+ * Obtener información de almacenamiento
+ */
+export const getStorageInfo = async (req, res) => {
+    const { mentorshipId } = req.params;
+    const userId = req.query.userId;
+
+    try {
+        const mentorship = await verifyMentorshipAccess(mentorshipId, userId);
+        if (!mentorship) {
+            return res.status(403).json({ error: 'No tienes acceso a esta tutoría' });
+        }
+
+        const usedBytes = await getUsedStorage(mentorshipId);
+        const [countResult] = await db.query(
+            'SELECT COUNT(*) as total_files FROM Repository_Materials WHERE mentorship_id = ?',
+            [mentorshipId]
+        );
+
+        res.json({
+            used_bytes: Number(usedBytes),
+            limit_bytes: STORAGE_LIMIT_BYTES,
+            remaining_bytes: STORAGE_LIMIT_BYTES - Number(usedBytes),
+            total_files: countResult[0].total_files,
+            percentage: Math.round((Number(usedBytes) / STORAGE_LIMIT_BYTES) * 100)
+        });
+    } catch (error) {
+        console.error('Error obteniendo info de almacenamiento:', error);
+        res.status(500).json({ error: 'Error al obtener información de almacenamiento' });
+    }
+};
+
+/**
+ * POST /api/repository/:mentorshipId
+ * Subir nuevo material (solo mentor)
+ */
+export const uploadMaterial = async (req, res) => {
+    const { mentorshipId } = req.params;
+    const { title, description, userId } = req.body;
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'No se envió ningún archivo' });
+    }
+    if (!title || !title.trim()) {
+        return res.status(400).json({ error: 'El título es obligatorio' });
+    }
+
+    try {
+        // Verificar que el usuario es el mentor de esta tutoría
+        const mentorship = await verifyMentorshipAccess(mentorshipId, userId);
+        if (!mentorship) {
+            return res.status(403).json({ error: 'No tienes acceso a esta tutoría' });
+        }
+        if (String(mentorship.mentor_id) !== String(userId)) {
+            return res.status(403).json({ error: 'Solo el mentor puede subir materiales' });
+        }
+
+        // Verificar límite de almacenamiento
+        const usedBytes = await getUsedStorage(mentorshipId);
+        const fileSize = req.file.size;
+
+        if (Number(usedBytes) + fileSize > STORAGE_LIMIT_BYTES) {
+            const remainingMB = ((STORAGE_LIMIT_BYTES - Number(usedBytes)) / (1024 * 1024)).toFixed(1);
+            const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+            return res.status(400).json({
+                error: `No hay espacio suficiente. El archivo pesa ${fileSizeMB}MB pero solo quedan ${remainingMB}MB disponibles.`
+            });
+        }
+
+        // Subir a Cloudinary
+        const cloudResult = await uploadToCloudinary(
+            req.file.buffer,
+            req.file.originalname,
+            mentorshipId
+        );
+
+        // Determinar tipo de archivo
+        const fileType = getFileType(req.file.originalname);
+        const resourceType = fileType === 'image' ? 'image' : (fileType === 'video' ? 'video' : 'raw');
+
+        // Guardar en base de datos
+        const [result] = await db.query(
+            `INSERT INTO Repository_Materials 
+             (mentorship_id, uploader_id, title, description, file_url, file_name, file_size, file_type, mime_type, cloudinary_public_id, cloudinary_resource_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                mentorshipId,
+                userId,
+                title.trim(),
+                description?.trim() || null,
+                cloudResult.secure_url,
+                req.file.originalname,
+                fileSize,
+                fileType,
+                req.file.mimetype,
+                cloudResult.public_id,
+                resourceType
+            ]
+        );
+
+        res.status(201).json({
+            message: 'Material subido exitosamente',
+            material: {
+                id: result.insertId,
+                title: title.trim(),
+                description: description?.trim() || null,
+                file_url: cloudResult.secure_url,
+                file_name: req.file.originalname,
+                file_size: fileSize,
+                file_type: fileType,
+                mime_type: req.file.mimetype
+            }
+        });
+
+    } catch (error) {
+        console.error('Error subiendo material:', error);
+        if (error.message?.includes('Tipo de archivo no permitido')) {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: 'Error al subir el material' });
+    }
+};
+
+/**
+ * PUT /api/repository/material/:materialId
+ * Editar título y descripción de un material (solo mentor)
+ */
+export const updateMaterial = async (req, res) => {
+    const { materialId } = req.params;
+    const { title, description, userId } = req.body;
+
+    if (!title || !title.trim()) {
+        return res.status(400).json({ error: 'El título es obligatorio' });
+    }
+
+    try {
+        // Obtener el material y verificar permisos
+        const [materials] = await db.query(
+            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            [materialId]
+        );
+
+        if (materials.length === 0) {
+            return res.status(404).json({ error: 'Material no encontrado' });
+        }
+
+        const material = materials[0];
+        if (String(material.mentor_id) !== String(userId)) {
+            return res.status(403).json({ error: 'Solo el mentor puede editar materiales' });
+        }
+
+        await db.query(
+            'UPDATE Repository_Materials SET title = ?, description = ? WHERE id = ?',
+            [title.trim(), description?.trim() || null, materialId]
+        );
+
+        res.json({ message: 'Material actualizado correctamente' });
+
+    } catch (error) {
+        console.error('Error actualizando material:', error);
+        res.status(500).json({ error: 'Error al actualizar el material' });
+    }
+};
+
+/**
+ * PUT /api/repository/material/:materialId/file
+ * Reemplazar el archivo de un material (solo mentor)
+ */
+export const replaceFile = async (req, res) => {
+    const { materialId } = req.params;
+    const { userId } = req.body;
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'No se envió ningún archivo' });
+    }
+
+    try {
+        // Obtener el material actual
+        const [materials] = await db.query(
+            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            [materialId]
+        );
+
+        if (materials.length === 0) {
+            return res.status(404).json({ error: 'Material no encontrado' });
+        }
+
+        const material = materials[0];
+        if (String(material.mentor_id) !== String(userId)) {
+            return res.status(403).json({ error: 'Solo el mentor puede reemplazar archivos' });
+        }
+
+        // Verificar que el nuevo archivo cabe en el espacio (restando el viejo)
+        const usedBytes = await getUsedStorage(material.mentorship_id);
+        const newFileSize = req.file.size;
+        const adjustedUsed = Number(usedBytes) - Number(material.file_size);
+
+        if (adjustedUsed + newFileSize > STORAGE_LIMIT_BYTES) {
+            const remainingMB = ((STORAGE_LIMIT_BYTES - adjustedUsed) / (1024 * 1024)).toFixed(1);
+            const fileSizeMB = (newFileSize / (1024 * 1024)).toFixed(1);
+            return res.status(400).json({
+                error: `No hay espacio suficiente. El archivo pesa ${fileSizeMB}MB pero solo quedan ${remainingMB}MB disponibles.`
+            });
+        }
+
+        // Eliminar archivo viejo de Cloudinary
+        try {
+            await deleteFromCloudinary(material.cloudinary_public_id, material.cloudinary_resource_type || 'image');
+        } catch (err) {
+            console.warn('No se pudo eliminar el archivo anterior de Cloudinary:', err.message);
+        }
+
+        // Subir nuevo archivo
+        const cloudResult = await uploadToCloudinary(
+            req.file.buffer,
+            req.file.originalname,
+            material.mentorship_id
+        );
+
+        const fileType = getFileType(req.file.originalname);
+        const resourceType = fileType === 'image' ? 'image' : (fileType === 'video' ? 'video' : 'raw');
+
+        // Actualizar en base de datos
+        await db.query(
+            `UPDATE Repository_Materials 
+             SET file_url = ?, file_name = ?, file_size = ?, file_type = ?, mime_type = ?, cloudinary_public_id = ?, cloudinary_resource_type = ?
+             WHERE id = ?`,
+            [
+                cloudResult.secure_url,
+                req.file.originalname,
+                newFileSize,
+                fileType,
+                req.file.mimetype,
+                cloudResult.public_id,
+                resourceType,
+                materialId
+            ]
+        );
+
+        res.json({
+            message: 'Archivo reemplazado correctamente',
+            material: {
+                file_url: cloudResult.secure_url,
+                file_name: req.file.originalname,
+                file_size: newFileSize,
+                file_type: fileType,
+                mime_type: req.file.mimetype
+            }
+        });
+
+    } catch (error) {
+        console.error('Error reemplazando archivo:', error);
+        res.status(500).json({ error: 'Error al reemplazar el archivo' });
+    }
+};
+
+/**
+ * DELETE /api/repository/material/:materialId
+ * Eliminar un material (solo mentor)
+ */
+export const deleteMaterial = async (req, res) => {
+    const { materialId } = req.params;
+    const { userId } = req.query;
+
+    try {
+        // Obtener el material y verificar permisos
+        const [materials] = await db.query(
+            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            [materialId]
+        );
+
+        if (materials.length === 0) {
+            return res.status(404).json({ error: 'Material no encontrado' });
+        }
+
+        const material = materials[0];
+        if (String(material.mentor_id) !== String(userId)) {
+            return res.status(403).json({ error: 'Solo el mentor puede eliminar materiales' });
+        }
+
+        // Eliminar de Cloudinary
+        try {
+            await deleteFromCloudinary(material.cloudinary_public_id, material.cloudinary_resource_type || 'image');
+        } catch (err) {
+            console.warn('No se pudo eliminar de Cloudinary:', err.message);
+        }
+
+        // Eliminar de la base de datos
+        await db.query('DELETE FROM Repository_Materials WHERE id = ?', [materialId]);
+
+        res.json({ message: 'Material eliminado correctamente' });
+
+    } catch (error) {
+        console.error('Error eliminando material:', error);
+        res.status(500).json({ error: 'Error al eliminar el material' });
+    }
+};
