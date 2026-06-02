@@ -141,11 +141,39 @@ const enrichUserProfileData = async (user) => {
         console.error("Error fetching upcoming mentorships for profile:", e.message);
     }
 
+    // Calcular score dinámico
+    let score = 5.0;
+    let comments = [];
+    try {
+        const [ratingRows] = await db.query(
+            "SELECT AVG(rating) as avg_rating FROM Mentorships WHERE mentor_id = ? AND status = 'COMPLETADA' AND is_rated = 1 AND is_deleted = 0",
+            [user.id]
+        );
+        if (ratingRows.length > 0 && ratingRows[0].avg_rating) {
+            score = parseFloat(Number(ratingRows[0].avg_rating).toFixed(1));
+        }
+
+        // Obtener comentarios de estudiantes
+        const [commentRows] = await db.query(
+            `SELECT m.rating, m.rating_comment, m.closed_at, u.full_name as apprentice_name 
+             FROM Mentorships m
+             JOIN Users u ON m.apprentice_id = u.id
+             WHERE m.mentor_id = ? AND m.status = 'COMPLETADA' AND m.is_rated = 1 AND m.rating_comment IS NOT NULL AND m.rating_comment != '' AND m.is_deleted = 0
+             ORDER BY m.closed_at DESC
+             LIMIT 5`,
+            [user.id]
+        );
+        comments = commentRows;
+    } catch (e) {
+        console.error("Error calculating dynamic score and comments:", e.message);
+    }
+
     return {
         ...user,
-        score: DEFAULT_SCORE,
+        score,
         badges: DEFAULT_BADGES,
-        tutorias
+        tutorias,
+        comments
     };
 };
 
@@ -154,7 +182,8 @@ export const getAllMentors = async (req, res) => {
         const { exclude } = req.query;
         let query = `
             SELECT u.id, u.full_name AS nombre, '' AS apellidos, u.career, u.profile_photo_url, u.current_semester,
-            GROUP_CONCAT(s.name SEPARATOR ', ') AS materias_nombres
+            GROUP_CONCAT(s.name SEPARATOR ', ') AS materias_nombres,
+            (SELECT COALESCE(AVG(m.rating), 5.0) FROM Mentorships m WHERE m.mentor_id = u.id AND m.status = 'COMPLETADA' AND m.is_rated = 1 AND m.is_deleted = 0) AS score
             FROM Users u
             LEFT JOIN Mentor_Subjects ms ON u.id = ms.mentor_id
             LEFT JOIN Subjects s ON ms.subject_id = s.id
@@ -173,7 +202,7 @@ export const getAllMentors = async (req, res) => {
 
         const formattedMentors = mentors.map(m => ({
             ...m,
-            score: 4.5, // Mock the score if it's missing in DB
+            score: parseFloat(Number(m.score).toFixed(1)),
             materias: m.materias_nombres ? m.materias_nombres.split(', ') : []
         }));
 
@@ -181,5 +210,37 @@ export const getAllMentors = async (req, res) => {
     } catch (error) {
         console.error("Error al obtener mentores:", error);
         res.status(500).json({ error: "Error al obtener mentores" });
+    }
+};
+
+export const upgradeToMentor = async (req, res) => {
+    const { id } = req.params;
+    const { materias, bio } = req.body;
+
+    try {
+        // 1. Cambiar el rol del usuario a MENTOR y actualizar bio
+        const upgradeQuery = "UPDATE Users SET role = 'MENTOR', bio = ? WHERE id = ?";
+        await db.query(upgradeQuery, [bio || '', id]);
+
+        // 2. Asociar las materias seleccionadas en Mentor_Subjects
+        if (materias && materias.length > 0) {
+            await db.query("DELETE FROM Mentor_Subjects WHERE mentor_id = ?", [id]);
+
+            const insertValues = materias.map(subjectId => [id, subjectId]);
+            const insertQuery = "INSERT INTO Mentor_Subjects (mentor_id, subject_id) VALUES ?";
+            await db.query(insertQuery, [insertValues]);
+        }
+
+        // 3. Obtener los datos del perfil actualizados
+        const updatedUser = await findUserById(id);
+        const enrichedUser = await enrichUserProfileData(updatedUser);
+
+        res.json({
+            message: "¡Felicidades! Has sido ascendido a Mentor/Tutor exitosamente.",
+            user: enrichedUser
+        });
+    } catch (error) {
+        console.error("Error al ascender a Mentor:", error);
+        res.status(500).json({ error: "No se pudo procesar la solicitud de ascenso a tutor." });
     }
 };

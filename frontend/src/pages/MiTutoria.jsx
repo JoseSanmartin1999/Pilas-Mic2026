@@ -22,19 +22,59 @@ const MiTutoria = () => {
 
     const currentUser = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
 
+    const handleCloseMentorship = (closedId, finalStatus) => {
+        if (finalStatus === 'CANCELADA') {
+            setSelectedMentorship(null);
+            setMentorships((prev) => prev.filter((m) => m.id !== closedId));
+            return;
+        }
+
+        setSelectedMentorship((prev) => {
+            if (prev && prev.id === closedId) {
+                return { ...prev, status: 'COMPLETADA', closed_at: new Date().toISOString() };
+            }
+            return prev;
+        });
+        setMentorships((prev) =>
+            prev.map((m) => {
+                if (m.id === closedId) {
+                    return { ...m, status: 'COMPLETADA', closed_at: new Date().toISOString() };
+                }
+                return m;
+            })
+        );
+    };
+
+    const handleRateMentorship = (ratedId, rating, comment) => {
+        setSelectedMentorship((prev) => {
+            if (prev && prev.id === ratedId) {
+                return { ...prev, is_rated: 1, rating, rating_comment: comment };
+            }
+            return prev;
+        });
+        setMentorships((prev) =>
+            prev.map((m) => {
+                if (m.id === ratedId) {
+                    return { ...m, is_rated: 1, rating, rating_comment: comment };
+                }
+                return m;
+            })
+        );
+    };
+
     useEffect(() => {
         if (!currentUser?.id) return;
 
         const fetchMentorships = async () => {
             try {
                 const { data } = await axios.get(`${BACKEND_URL}/api/mentorships/user/${currentUser.id}`);
-                // Solo tutorías ACEPTADAS tienen canal de chat activo
-                const accepted = data.filter((m) => m.status === 'ACEPTADA');
-                setMentorships(accepted);
+                // Las tutorías ACEPTADAS y COMPLETADAS son válidas para ingresar al espacio
+                const activeOrClosed = data.filter((m) => m.status === 'ACEPTADA' || m.status === 'COMPLETADA');
+                setMentorships(activeOrClosed);
 
                 // Si solo hay una, entrar directo
-                if (accepted.length === 1) {
-                    setSelectedMentorship(accepted[0]);
+                if (activeOrClosed.length === 1) {
+                    setSelectedMentorship(activeOrClosed[0]);
                 }
             } catch (err) {
                 console.error('Error cargando mentorías:', err);
@@ -128,6 +168,8 @@ const MiTutoria = () => {
                     <WorkspaceLayout
                         mentorship={selectedMentorship}
                         currentUser={currentUser}
+                        onCloseMentorship={handleCloseMentorship}
+                        onRateMentorship={handleRateMentorship}
                     />
                 </div>
             </div>
@@ -180,10 +222,17 @@ const MiTutoria = () => {
                                             {partnerRole}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-1.5 mt-2">
-                                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                                        <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Activa</span>
-                                    </div>
+                                    {m.status === 'COMPLETADA' ? (
+                                        <div className="flex items-center gap-1.5 mt-2">
+                                            <span className="w-2 h-2 bg-red-400 rounded-full" />
+                                            <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest">Cerrada (Lectura)</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 mt-2">
+                                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                                            <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Activa</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* CTA */}

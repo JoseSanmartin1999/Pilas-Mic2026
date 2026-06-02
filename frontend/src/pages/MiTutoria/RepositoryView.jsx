@@ -311,8 +311,8 @@ const RepositoryView = ({ mentorship, currentUser }) => {
                         </p>
                     </div>
 
-                    {/* Botón subir — solo mentor */}
-                    {isMentor && (
+                    {/* Botón subir — solo mentor y cuando esté activa */}
+                    {isMentor && mentorship?.status !== 'COMPLETADA' && (
                         <button
                             id="btn-upload-material"
                             onClick={() => setShowUploadModal(true)}
@@ -428,7 +428,7 @@ const RepositoryView = ({ mentorship, currentUser }) => {
                                 ? 'Sube PDFs, videos, imágenes o cualquier recurso que ayude a tu aprendiz.'
                                 : 'Tu mentor aún no ha subido materiales. Aparecerán aquí cuando lo haga.'}
                         </p>
-                        {isMentor && (
+                        {isMentor && mentorship?.status !== 'COMPLETADA' && (
                             <button
                                 onClick={() => setShowUploadModal(true)}
                                 className="flex items-center gap-2 px-6 py-3 bg-[#1e3a8a] text-[#d4af37] rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#1a3270] hover:scale-[1.02] transition-all shadow-lg shadow-[#1e3a8a]/20"
@@ -487,7 +487,7 @@ const RepositoryView = ({ mentorship, currentUser }) => {
                                         </div>
 
                                         {/* Mentor actions */}
-                                        {isMentor && (
+                                        {isMentor && mentorship?.status !== 'COMPLETADA' && (
                                             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); openEditModal(mat); }}

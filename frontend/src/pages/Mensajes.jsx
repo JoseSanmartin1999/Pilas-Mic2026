@@ -271,10 +271,18 @@ const Mensajes = () => {
                                         </div>
                                     )}
                                     {selectedMessage.status === 'CANCELADA' && (
-                                        <div className="mt-4 p-4 bg-red-50 rounded-2xl border border-red-100">
-                                            <p className="text-red-800 text-sm font-bold">
-                                                ⚠️ Tutoría cancelada automáticamente por falta de acuerdo tras varios intentos.
+                                        <div className="mt-4 p-5 bg-red-50 rounded-2xl border border-red-100 text-left space-y-3">
+                                            <p className="text-red-800 text-sm font-bold flex items-center gap-2">
+                                                <span>⚠️</span> Tutoría Cancelada
                                             </p>
+                                            <div className="bg-white/60 p-4 rounded-xl border border-red-200">
+                                                <p className="text-[9px] font-black text-red-600 uppercase tracking-widest mb-1.5">
+                                                    Motivo de la Cancelación:
+                                                </p>
+                                                <p className="text-xs font-semibold text-gray-700 italic">
+                                                    "{selectedMessage.reprogramming_reason || 'Falta de acuerdo tras varios intentos o cancelada por el tutor.'}"
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                     {selectedMessage.status === 'ACEPTADA' && (

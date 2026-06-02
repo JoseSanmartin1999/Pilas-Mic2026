@@ -48,6 +48,7 @@ export const getMentorshipsByUser = async (req, res) => {
                 m.last_initiator_role,
                 m.apprentice_notified,
                 m.estimated_duration,
+                m.closed_at,
                 mentor.full_name as mentor_name,
                 apprentice.full_name as apprentice_name,
                 s.name as subject_name
@@ -56,6 +57,7 @@ export const getMentorshipsByUser = async (req, res) => {
             JOIN Users apprentice ON m.apprentice_id = apprentice.id
             JOIN Subjects s ON m.subject_id = s.id
             WHERE (m.mentor_id = ? OR m.apprentice_id = ?) AND m.is_deleted = 0
+              AND (m.status != 'COMPLETADA' OR m.closed_at >= NOW() - INTERVAL 2 DAY)
             ORDER BY m.created_at DESC
         `;
         const [rows] = await db.query(query, [userId, userId]);
@@ -232,5 +234,97 @@ export const deleteMentorship = async (req, res) => {
     } catch (error) {
         console.error("Error deleting mentorship:", error);
         res.status(500).json({ error: "No se pudo eliminar la tutoría" });
+    }
+};
+
+export const closeMentorship = async (req, res) => {
+    const { id } = req.params;
+    const { userId, closeType, cancellationReason } = req.body;
+
+    if (!userId) {
+        return res.status(400).json({ error: "El ID del usuario es requerido" });
+    }
+
+    try {
+        // Verificar que la tutoría exista y el solicitante sea el mentor
+        const [rows] = await db.query(
+            "SELECT mentor_id FROM Mentorships WHERE id = ? AND is_deleted = 0",
+            [id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Tutoría no encontrada" });
+        }
+
+        if (String(rows[0].mentor_id) !== String(userId)) {
+            return res.status(403).json({ error: "Solo el tutor/mentor puede cerrar esta tutoría." });
+        }
+
+        // Determinar estado final y mensaje en base al tipo de cierre seleccionado
+        const isCancel = closeType === 'cancelada';
+        const finalStatus = isCancel ? 'CANCELADA' : 'COMPLETADA';
+        const successMessage = isCancel 
+            ? "Tutoría cancelada exitosamente. El aula ha sido desactivada y eliminada." 
+            : "Tutoría finalizada exitosamente. El aula pasa a modo de solo lectura por 2 días.";
+
+        // Si es cancelada, guardamos el motivo de la cancelación en reprogramming_reason
+        const [result] = await db.query(
+            "UPDATE Mentorships SET status = ?, closed_at = NOW(), reprogramming_reason = ? WHERE id = ? AND is_deleted = 0",
+            [finalStatus, isCancel ? (cancellationReason || "No especificado") : null, id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Tutoría no encontrada o ya eliminada" });
+        }
+
+        res.json({ message: successMessage, status: finalStatus });
+    } catch (error) {
+        console.error("Error al cerrar tutoría:", error);
+        res.status(500).json({ error: "No se pudo cerrar la tutoría" });
+    }
+};
+
+export const rateMentorship = async (req, res) => {
+    const { id } = req.params;
+    const { rating, comment, userId } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: "La calificación debe ser entre 1 y 5 estrellas." });
+    }
+
+    try {
+        // Verificar que la tutoría exista, que sea del aprendiz solicitante, y que esté completada y no calificada
+        const [rows] = await db.query(
+            "SELECT apprentice_id, status, is_rated FROM Mentorships WHERE id = ? AND is_deleted = 0",
+            [id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: "Tutoría no encontrada." });
+        }
+
+        const mentorship = rows[0];
+
+        if (String(mentorship.apprentice_id) !== String(userId)) {
+            return res.status(403).json({ error: "Solo el estudiante/aprendiz que recibió la tutoría puede calificarla." });
+        }
+
+        if (mentorship.status !== 'COMPLETADA') {
+            return res.status(400).json({ error: "Solo puedes calificar tutorías completadas/finalizadas." });
+        }
+
+        if (mentorship.is_rated) {
+            return res.status(400).json({ error: "Esta tutoría ya ha sido calificada." });
+        }
+
+        await db.query(
+            "UPDATE Mentorships SET rating = ?, rating_comment = ?, is_rated = 1 WHERE id = ?",
+            [rating, comment?.trim() || null, id]
+        );
+
+        res.json({ message: "¡Muchas gracias por calificar tu tutoría!" });
+    } catch (error) {
+        console.error("Error al calificar tutoría:", error);
+        res.status(500).json({ error: "No se pudo registrar la calificación." });
     }
 };

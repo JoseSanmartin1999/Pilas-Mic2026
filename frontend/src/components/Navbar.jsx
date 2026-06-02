@@ -66,16 +66,17 @@ const Navbar = ({ isAuthenticated, userRole, onLogout }) => {
                                     Bandeja de Entrada
                                     <Badge count={counts.newInboxMessages} />
                                 </Link>
-                                {userRole === 'MENTOR' && (
+                                {userRole === 'MENTOR' ? (
                                     <Link to="/solicitudes" className="nav-link relative">
                                         Solicitudes Pendientes
                                         <Badge count={counts.pendingSolicitudes} />
                                     </Link>
+                                ) : (
+                                    <Link to="/se-tutor" className="nav-link relative">
+                                        Sé Tutor
+                                    </Link>
                                 )}
                                 <Link to="/recompensas" className="nav-link">Recompensas</Link>
-                                {userRole === 'APRENDIZ' && (
-                                    <Link to="/registro-tutor" className="text-pilas-gold font-bold hover:text-blue-900">Hazte Tutor</Link>
-                                )}
                             </>
                         ) : (
                             <>

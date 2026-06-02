@@ -9,7 +9,11 @@ const MIGRATIONS = [
     { query: 'ALTER TABLE Users ADD COLUMN reset_code VARCHAR(10);', column: 'reset_code' },
     { query: 'ALTER TABLE Users ADD COLUMN reset_code_expires_at TIMESTAMP NULL;', column: 'reset_code_expires_at' },
     { query: 'ALTER TABLE Mentorships ADD COLUMN is_deleted BOOLEAN DEFAULT 0;', column: 'is_deleted' },
-    { query: 'ALTER TABLE Mentorships ADD COLUMN estimated_duration VARCHAR(50) DEFAULT "1 hora";', column: 'estimated_duration' }
+    { query: 'ALTER TABLE Mentorships ADD COLUMN estimated_duration VARCHAR(50) DEFAULT "1 hora";', column: 'estimated_duration' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN closed_at TIMESTAMP NULL DEFAULT NULL;', column: 'closed_at' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN rating INT DEFAULT NULL;', column: 'rating' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN rating_comment TEXT DEFAULT NULL;', column: 'rating_comment' },
+    { query: 'ALTER TABLE Mentorships ADD COLUMN is_rated TINYINT(1) DEFAULT 0;', column: 'is_rated' }
 ];
 
 async function executeMigrations() {

@@ -49,7 +49,11 @@ const LeftSidebar = ({ activeModule, onModuleChange, mentorship }) => {
             {/* Cabecera del sidebar */}
             <div className="px-5 py-5 border-b border-white/5">
                 <div className="flex items-center gap-3 mb-1">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                    {mentorship?.status === 'COMPLETADA' ? (
+                        <div className="w-2 h-2 bg-gray-400 rounded-full border border-white/10" />
+                    ) : (
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                    )}
                     <span className="text-white/90 font-black text-sm tracking-tight truncate">
                         {mentorship?.subject_name || 'Tutoría'}
                     </span>
@@ -122,9 +126,15 @@ const LeftSidebar = ({ activeModule, onModuleChange, mentorship }) => {
                         <p className="text-white/70 text-[10px] font-bold truncate">
                             {mentorship?.mentor_name || 'Mentor'}
                         </p>
-                        <p className="text-white/25 text-[9px]">Tutor activo</p>
+                        <p className="text-white/25 text-[9px]">
+                            {mentorship?.status === 'COMPLETADA' ? 'Tutor (Archivado)' : 'Tutor activo'}
+                        </p>
                     </div>
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0" />
+                    {mentorship?.status === 'COMPLETADA' ? (
+                        <div className="w-2 h-2 bg-gray-400 rounded-full flex-shrink-0" />
+                    ) : (
+                        <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0" />
+                    )}
                 </div>
             </div>
         </aside>

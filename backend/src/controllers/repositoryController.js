@@ -10,7 +10,7 @@ const STORAGE_LIMIT_BYTES = 300 * 1024 * 1024;
  */
 const verifyMentorshipAccess = async (mentorshipId, userId) => {
     const [rows] = await db.query(
-        'SELECT id, mentor_id, apprentice_id FROM Mentorships WHERE id = ? AND (mentor_id = ? OR apprentice_id = ?) AND is_deleted = 0',
+        'SELECT id, mentor_id, apprentice_id, status FROM Mentorships WHERE id = ? AND (mentor_id = ? OR apprentice_id = ?) AND is_deleted = 0',
         [mentorshipId, userId, userId]
     );
     if (rows.length === 0) return null;
@@ -116,6 +116,9 @@ export const uploadMaterial = async (req, res) => {
         if (String(mentorship.mentor_id) !== String(userId)) {
             return res.status(403).json({ error: 'Solo el mentor puede subir materiales' });
         }
+        if (mentorship.status === 'COMPLETADA') {
+            return res.status(403).json({ error: 'La tutoría está cerrada y no admite modificaciones.' });
+        }
 
         // Verificar límite de almacenamiento
         const usedBytes = await getUsedStorage(mentorshipId);
@@ -198,7 +201,7 @@ export const updateMaterial = async (req, res) => {
     try {
         // Obtener el material y verificar permisos
         const [materials] = await db.query(
-            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            'SELECT rm.*, m.mentor_id, m.status FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
             [materialId]
         );
 
@@ -209,6 +212,9 @@ export const updateMaterial = async (req, res) => {
         const material = materials[0];
         if (String(material.mentor_id) !== String(userId)) {
             return res.status(403).json({ error: 'Solo el mentor puede editar materiales' });
+        }
+        if (material.status === 'COMPLETADA') {
+            return res.status(403).json({ error: 'La tutoría está cerrada y no admite modificaciones.' });
         }
 
         await db.query(
@@ -239,7 +245,7 @@ export const replaceFile = async (req, res) => {
     try {
         // Obtener el material actual
         const [materials] = await db.query(
-            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            'SELECT rm.*, m.mentor_id, m.status FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
             [materialId]
         );
 
@@ -250,6 +256,9 @@ export const replaceFile = async (req, res) => {
         const material = materials[0];
         if (String(material.mentor_id) !== String(userId)) {
             return res.status(403).json({ error: 'Solo el mentor puede reemplazar archivos' });
+        }
+        if (material.status === 'COMPLETADA') {
+            return res.status(403).json({ error: 'La tutoría está cerrada y no admite modificaciones.' });
         }
 
         // Verificar que el nuevo archivo cabe en el espacio (restando el viejo)
@@ -327,7 +336,7 @@ export const deleteMaterial = async (req, res) => {
     try {
         // Obtener el material y verificar permisos
         const [materials] = await db.query(
-            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            'SELECT rm.*, m.mentor_id, m.status FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
             [materialId]
         );
 
@@ -338,6 +347,9 @@ export const deleteMaterial = async (req, res) => {
         const material = materials[0];
         if (String(material.mentor_id) !== String(userId)) {
             return res.status(403).json({ error: 'Solo el mentor puede eliminar materiales' });
+        }
+        if (material.status === 'COMPLETADA') {
+            return res.status(403).json({ error: 'La tutoría está cerrada y no admite modificaciones.' });
         }
 
         // Eliminar de Cloudinary

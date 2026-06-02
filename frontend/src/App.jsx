@@ -12,6 +12,7 @@ import Solicitudes from './pages/Solicitudes';
 import MiTutoria from './pages/MiTutoria';
 import Calendario from './pages/Calendario';
 import Recompensas from './pages/Recompensas';
+import SeTutor from './pages/SeTutor';
 import Footer from './components/Footer';
 
 import { NotificationProvider } from './context/NotificationContext';
@@ -50,6 +51,7 @@ const AppContent = ({ auth, setAuth }) => {
           <Route path="/mi-tutoria" element={<MiTutoria />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/recompensas" element={<Recompensas />} />
+          <Route path="/se-tutor" element={<SeTutor setAuth={setAuth} />} />
 
           {/* Ruta comodín para manejar errores 404 */}
           <Route path="*" element={<div className="text-center py-20">404 - Página no encontrada</div>} />

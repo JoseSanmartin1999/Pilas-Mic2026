@@ -279,7 +279,14 @@ const Profile = () => {
           {/* BARRA SUPERIOR: SCORE */}
           <div className="bg-gradient-to-r from-[#1a3a5a] to-[#2a4a7a] p-8 rounded-[2rem] shadow-lg flex items-center justify-between overflow-hidden relative">
             <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
-            <span className="text-lg font-bold text-white/80 uppercase tracking-widest relative z-10">Puntuación</span>
+            <div className="flex flex-col relative z-10">
+              <span className="text-lg font-bold text-white/80 uppercase tracking-widest">Puntuación</span>
+              {user.role === 'MENTOR' && (
+                <span className="text-xs font-semibold text-yellow-300 tracking-wider mt-0.5">
+                  Calificación Promedio: {parseFloat(Number(user.score || 5.0).toFixed(1))} / 5.0
+                </span>
+              )}
+            </div>
             <div className="flex space-x-2 text-[#ffcc00] text-4xl drop-shadow-md relative z-10">
               {[1, 2, 3, 4, 5].map((s) => <span key={s}>{s <= Math.round(user.score || 0) ? '★' : '☆'}</span>)}
             </div>
@@ -307,14 +314,93 @@ const Profile = () => {
           </div>
 
           {/* COMENTARIOS / SOBRE MÍ */}
-          <div className="bg-white p-8 rounded-[2rem] shadow-sm ring-1 ring-gray-900/5 flex-1 flex flex-col">
+          <div className="bg-white p-8 rounded-[2rem] shadow-sm ring-1 ring-gray-900/5 flex flex-col">
             <h4 className="text-[#1a3a5a] font-extrabold text-xl tracking-tight mb-5">Sobre Mí</h4>
-            <div className="flex-1 bg-gray-50/80 rounded-3xl p-8 border border-gray-100/80 shadow-inner">
+            <div className="bg-gray-50/80 rounded-3xl p-8 border border-gray-100/80 shadow-inner">
               <p className="text-gray-600 leading-relaxed text-sm font-medium">
                 {user.bio ? `"${user.bio}"` : <span className="italic px-2">Este usuario no ha agregado comentarios aún.</span>}
               </p>
             </div>
           </div>
+
+          {/* SECCIÓN OPINIONES DE ALUMNOS (SÓLO SI EL USUARIO ES MENTOR) */}
+          {user.role === 'MENTOR' && (
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm ring-1 ring-gray-900/5 flex flex-col space-y-6">
+              <div className="flex justify-between items-center">
+                <h4 className="text-[#1a3a5a] font-extrabold text-xl tracking-tight">Opiniones de Alumnos</h4>
+                <span className="text-[10px] font-bold text-[#1a3a5a] bg-gray-100 px-3 py-1.5 rounded-lg uppercase tracking-widest">
+                  {user.comments?.length || 0} opiniones
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {user.comments && user.comments.length > 0 ? (
+                  user.comments.map((comment, idx) => {
+                    const initials = comment.apprentice_name
+                      ? comment.apprentice_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                      : 'A';
+                    
+                    const dateFormatted = new Date(comment.closed_at).toLocaleDateString('es-ES', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    });
+
+                    // Lista de colores para los avatars de estudiantes
+                    const avatarBgColors = [
+                      'bg-indigo-100 text-indigo-700',
+                      'bg-emerald-100 text-emerald-700',
+                      'bg-purple-100 text-purple-700',
+                      'bg-sky-100 text-sky-700',
+                      'bg-pink-100 text-pink-700'
+                    ];
+                    const avatarColor = avatarBgColors[idx % avatarBgColors.length];
+
+                    return (
+                      <div 
+                        key={idx} 
+                        className="p-6 bg-gray-50/50 hover:bg-gray-50 border border-gray-100 rounded-3xl flex flex-col md:flex-row gap-4 transition-all duration-300 hover:shadow-sm"
+                      >
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 flex items-center md:items-start justify-center md:justify-start">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm tracking-wider shadow-sm ${avatarColor}`}>
+                            {initials}
+                          </div>
+                        </div>
+
+                        {/* Contenido de la opinión */}
+                        <div className="flex-grow space-y-2 text-left">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                            <h5 className="font-extrabold text-[#1a3a5a] text-sm">{comment.apprentice_name}</h5>
+                            <span className="text-[10px] font-bold text-gray-400">{dateFormatted}</span>
+                          </div>
+
+                          {/* Estrellas otorgadas */}
+                          <div className="flex text-amber-400 text-xs">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <span key={i}>{i < comment.rating ? '★' : '☆'}</span>
+                            ))}
+                          </div>
+
+                          {/* Comentario en sí */}
+                          <p className="text-gray-600 leading-relaxed text-xs font-medium italic bg-white/60 p-4 rounded-2xl border border-gray-100 shadow-inner">
+                            "{comment.rating_comment}"
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-10 bg-gray-50/50 rounded-3xl border border-dashed border-gray-250 flex flex-col items-center justify-center">
+                    <span className="text-4xl mb-3">⭐</span>
+                    <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+                      Este tutor aún no tiene opiniones de alumnos
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* BOTONES DE ACCIÓN */}
           <div className="flex gap-4 pt-2">

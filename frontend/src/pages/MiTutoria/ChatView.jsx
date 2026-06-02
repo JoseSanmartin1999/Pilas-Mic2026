@@ -308,8 +308,8 @@ const ChatView = ({ mentorship, currentUser }) => {
                             e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder={isConnected ? `Escribe un mensaje...` : 'Conectando...'}
-                        disabled={!isConnected || isLoadingHistory}
+                        placeholder={mentorship?.status === 'COMPLETADA' ? 'La tutoría está cerrada. No se pueden enviar más mensajes.' : isConnected ? 'Escribe un mensaje...' : 'Conectando...'}
+                        disabled={!isConnected || isLoadingHistory || mentorship?.status === 'COMPLETADA'}
                         className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none resize-none py-2.5 min-h-[40px] max-h-[120px] font-medium leading-relaxed disabled:opacity-40"
                         style={{ height: '40px' }}
                     />
@@ -318,7 +318,7 @@ const ChatView = ({ mentorship, currentUser }) => {
                     <button
                         id="btn-send-message"
                         onClick={sendMessage}
-                        disabled={!inputText.trim() || !isConnected}
+                        disabled={!inputText.trim() || !isConnected || mentorship?.status === 'COMPLETADA'}
                         className="flex-shrink-0 w-10 h-10 bg-[#1e3a8a] text-pilas-gold rounded-xl flex items-center justify-center hover:bg-[#1a3270] hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed disabled:scale-100 shadow-md shadow-[#1e3a8a]/20 m-0.5"
                         title="Enviar (Enter)"
                     >
@@ -328,10 +328,16 @@ const ChatView = ({ mentorship, currentUser }) => {
                     </button>
                 </div>
 
-                {/* Ayuda del teclado */}
-                <p className="text-[8px] text-gray-300 text-center mt-2 font-medium">
-                    Enter para enviar · Shift+Enter para nueva línea
-                </p>
+                {/* Ayuda del teclado o aviso de solo lectura */}
+                {mentorship?.status === 'COMPLETADA' ? (
+                    <p className="text-[8px] text-red-500 text-center mt-2 font-black uppercase tracking-widest animate-pulse">
+                        El chat se encuentra en modo de solo lectura.
+                    </p>
+                ) : (
+                    <p className="text-[8px] text-gray-300 text-center mt-2 font-medium">
+                        Enter para enviar · Shift+Enter para nueva línea
+                    </p>
+                )}
             </div>
         </div>
     );
