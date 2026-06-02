@@ -2,6 +2,34 @@
 
 Este documento registra las mejoras y cambios realizados en el sistema de tutorías para optimizar la coordinación entre mentores y alumnos.
 
+## [2026-06-02] - Encuesta de Satisfacción y Perfil de Aprendiz ("Sé Tutor")
+
+### Frontend
+- **Encuesta de Calificación Interactiva (`WorkspaceLayout.jsx` [MODIFY], `MiTutoria.jsx` [MODIFY])**:
+    - Modal de alta fidelidad con 5 estrellas interactivas (SVG vectoriales con animaciones de escala y color dorado) y campo opcional para opiniones.
+    - Soporte para posponer la calificación ("Calificar más tarde") que oculta el modal e integra un botón de acceso directo "⭐ Calificar Tutoría" en el banner dinámico del aula inactiva.
+    - Actualización reactiva instantánea: el envío de la calificación actualiza el estado local del workspace y oculta el formulario de inmediato.
+- **Opiniones de Alumnos y Puntaje Promedio (`Profile.jsx` [MODIFY])**:
+    - Nueva sección de opiniones de alumnos exclusiva para tutores (`role === 'MENTOR'`) con burbujas de comentarios elegantes que listan nombres, fechas formateadas, valoraciones individuales y citas de opinión.
+    - Avatares dinámicos de iniciales con paleta de colores alegre y alternada.
+    - Despliegue del puntaje numérico exacto en la barra de puntuación superior (ej: `Calificación Promedio: 4.8 / 5.0`).
+- **Navegación e Integración de Ruta "Sé Tutor" (`Navbar.jsx` [MODIFY], `App.jsx` [MODIFY], `SeTutor.jsx` [NEW])**:
+    - Reemplazo condicional: los usuarios de rol `'APRENDIZ'` ahora ven **Sé Tutor** en lugar de *Solicitudes Pendientes* en la barra superior.
+    - Remoción del enlace redundante "Hazte Tutor" para mantener la consistencia estética.
+    - Nueva página `/se-tutor` con formulario glassmorphic para que los aprendices elijan materias dictables mediante casillas de verificación, expongan su motivación (con contador de caracteres dinámico) y visualicen los beneficios del rol de tutor.
+    - Ascenso reactivo instantáneo: el envío de la solicitud actualiza el `localStorage`/`sessionStorage` y actualiza reactivamente el menú de navegación (reemplazando "Sé Tutor" por "Solicitudes Pendientes") sin requerir recarga.
+
+### Backend
+- **Calificación de Mentorías (`mentorshipController.js` [MODIFY], `mentorshipRoutes.js` [MODIFY])**:
+    - Endpoint `PUT /api/mentorships/:id/rate` para guardar la calificación (`rating`, `rating_comment`, `is_rated = 1`).
+    - Validaciones estrictas: restringe que sólo el aprendiz de la tutoría en estado `'COMPLETADA'` y que no haya sido calificada pueda opinar.
+- **Ascenso de Rol a Mentor (`userController.js` [MODIFY], `userRoutes.js` [MODIFY])**:
+    - Endpoint `PUT /api/users/profile/:id/upgrade` para procesar el ascenso inmediato.
+    - Actualiza el rol del usuario a `'MENTOR'`, actualiza su biografía e inserta en lote (bulk insert) sus materias elegidas en la tabla `Mentor_Subjects`.
+- **Cálculo Dinámico de Calificaciones (`userController.js` [MODIFY])**:
+    - El perfil de usuario calcula en tiempo real la puntuación promedio (`AVG(rating)`) y retorna las últimas 5 opiniones con comentarios no vacíos.
+    - El buscador general (`getAllMentors`) calcula el promedio de estrellas directamente vía subquery en la base de datos MySQL (TiDB Cloud) y provee soporte nativo para el ordenamiento por mejor valorados.
+
 ## [2026-05-29] - Repositorio de Materiales del Workspace
 
 ### Frontend
