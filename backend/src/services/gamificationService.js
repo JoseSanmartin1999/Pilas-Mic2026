@@ -1,5 +1,14 @@
 import db from '../config/db.js';
-import redis from '../config/redis.js';
+
+const loadRedis = async () => {
+    try {
+        const mod = await import('../config/redis.js');
+        return mod && (mod.default || mod);
+    } catch (err) {
+        // Fallo al cargar Redis; devolver null para que llamadores ignoren
+        return null;
+    }
+};
 
 // Parámetros de recompensa (ajustables)
 const COINS_FOR_COMPLETION = 50;
@@ -82,13 +91,27 @@ export default {
 
 // 1. Sumar puntos a un mentor (ej. al completar una sesión [cite: 28])
 export const updateMentorScore = async (mentorId, points) => {
-    // ZINCRBY aumenta el puntaje del mentor en el ranking "mentor_ranking"
-    await redis.zincrby('mentor_ranking', points, mentorId);
+    try {
+        const redis = await loadRedis();
+        if (!redis || typeof redis.zincrby !== 'function') return;
+        // ZINCRBY aumenta el puntaje del mentor en el ranking "mentor_ranking"
+        await redis.zincrby('mentor_ranking', points, mentorId);
+    } catch (err) {
+        console.error('gamificationService.updateMentorScore error:', err && err.message ? err.message : err);
+        // No propagar error para no afectar el flujo principal
+    }
 };
 
 // 2. Obtener el Top 10 de mentores para el Leaderboard 
 export const getTopMentors = async () => {
-    // ZREVRANGE obtiene los miembros con los puntajes más altos
-    const top = await redis.zrevrange('mentor_ranking', 0, 9, 'WITHSCORES');
-    return top; 
+    try {
+        const redis = await loadRedis();
+        if (!redis || typeof redis.zrevrange !== 'function') return [];
+        // ZREVRANGE obtiene los miembros con los puntajes más altos
+        const top = await redis.zrevrange('mentor_ranking', 0, 9, 'WITHSCORES');
+        return top;
+    } catch (err) {
+        console.error('gamificationService.getTopMentors error:', err && err.message ? err.message : err);
+        return [];
+    }
 };
