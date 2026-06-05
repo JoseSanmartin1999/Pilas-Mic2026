@@ -8,6 +8,7 @@ import {
     replaceFile,
     deleteMaterial
 } from '../controllers/repositoryController.js';
+import { downloadMaterial } from '../controllers/repositoryController.js';
 
 const router = express.Router();
 
@@ -28,5 +29,8 @@ router.put('/material/:materialId/file', repositoryUpload.single('file'), replac
 
 // DELETE /api/repository/material/:materialId — Eliminar material
 router.delete('/material/:materialId', deleteMaterial);
+
+// GET /api/repository/material/:materialId/download — Descargar archivo como attachment
+router.get('/material/:materialId/download', downloadMaterial);
 
 export default router;
