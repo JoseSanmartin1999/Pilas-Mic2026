@@ -1,5 +1,6 @@
 import db from '../config/db.js';
-import { uploadToCloudinary, deleteFromCloudinary, getFileType } from '../config/cloudinaryRepository.js';
+import axios from 'axios';
+import cloudinary, { uploadToCloudinary, deleteFromCloudinary, getFileType } from '../config/cloudinaryRepository.js';
 import path from 'path';
 
 // Límite de almacenamiento por tutoría: 300MB en bytes
@@ -367,5 +368,169 @@ export const deleteMaterial = async (req, res) => {
     } catch (error) {
         console.error('Error eliminando material:', error);
         res.status(500).json({ error: 'Error al eliminar el material' });
+    }
+};
+
+/**
+ * GET /api/repository/material/:materialId/download
+ * Proxy que obtiene el archivo desde Cloudinary y lo sirve con encabezados
+ * para forzar la descarga en el navegador (Content-Disposition: attachment)
+ */
+export const downloadMaterial = async (req, res) => {
+    const { materialId } = req.params;
+    const userId = req.query.userId;
+
+    try {
+        const [materials] = await db.query(
+            'SELECT rm.*, m.mentor_id FROM Repository_Materials rm JOIN Mentorships m ON rm.mentorship_id = m.id WHERE rm.id = ?',
+            [materialId]
+        );
+
+        if (materials.length === 0) {
+            return res.status(404).json({ error: 'Material no encontrado' });
+        }
+
+        const material = materials[0];
+
+        const mentorship = await verifyMentorshipAccess(material.mentorship_id, userId);
+        if (!mentorship) {
+            return res.status(403).json({ error: 'No tienes acceso a esta tutoría' });
+        }
+
+        const resourceType = material.cloudinary_resource_type || 'raw';
+        const fileExtension = path.extname(material.file_name).replace('.', '') || undefined;
+
+        const downloadUrl = cloudinary.utils.private_download_url(
+            material.cloudinary_public_id,
+            fileExtension,
+            {
+                resource_type: resourceType,
+                type: 'upload',
+                attachment: material.file_name,
+            }
+        );
+
+        console.log('[downloadMaterial] using signed download URL', downloadUrl);
+
+        const remoteRes = await axios.get(downloadUrl, {
+            responseType: 'stream',
+            maxRedirects: 5,
+            validateStatus: (status) => status < 500,
+        });
+
+        if (remoteRes.status >= 400) {
+            console.error('Error obteniendo archivo desde Cloudinary con URL firmada, status:', remoteRes.status, 'content-type:', remoteRes.headers['content-type']);
+            return res.status(502).json({ error: 'No se pudo obtener el archivo remoto' });
+        }
+
+        const filename = (material.file_name || 'download').replace(/\"/g, '');
+        res.setHeader('Content-Type', material.mime_type || remoteRes.headers['content-type'] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        if (remoteRes.headers['content-length']) {
+            res.setHeader('Content-Length', remoteRes.headers['content-length']);
+        }
+
+        remoteRes.data.pipe(res);
+        remoteRes.data.on('error', (err) => {
+            console.error('Error al leer el stream remoto:', err);
+            if (!res.headersSent) res.status(500).json({ error: 'Error al descargar el archivo' });
+        });
+
+        return;
+
+        const fetchAndPipe = (url, redirectCount = 0) => {
+            if (redirectCount > maxRedirects) {
+                res.status(500).json({ error: 'Demasiadas redirecciones al obtener el archivo' });
+                return;
+            }
+
+            const parsed = new URL(url);
+            const client = parsed.protocol === 'https:' ? https : http;
+
+            const request = client.get(url, (cloudRes) => {
+                console.log('[downloadMaterial] fetching', url, 'status', cloudRes.statusCode, 'content-type', cloudRes.headers['content-type']);
+
+                // seguir redirecciones
+                if (cloudRes.statusCode >= 300 && cloudRes.statusCode < 400 && cloudRes.headers.location) {
+                    const nextUrl = new URL(cloudRes.headers.location, url).href;
+                    cloudRes.resume();
+                    fetchAndPipe(nextUrl, redirectCount + 1);
+                    return;
+                }
+
+                if (cloudRes.statusCode && cloudRes.statusCode >= 400) {
+                    console.error('Error obteniendo archivo desde Cloudinary, status:', cloudRes.statusCode);
+                    res.status(502).json({ error: 'No se pudo obtener el archivo remoto' });
+                    return;
+                }
+
+                const contentType = (cloudRes.headers['content-type'] || '').toLowerCase();
+
+                // Si recibimos HTML/JSON (visor o página) intentamos forzar attachment con fl_attachment
+                if (contentType.includes('text/html') || contentType.includes('application/json')) {
+                    console.warn('[downloadMaterial] remote returned HTML/JSON; attempting fl_attachment URL');
+
+                    try {
+                        const u = new URL(url);
+                        // insertar 'fl_attachment' después de '/upload/'
+                        if (u.pathname.includes('/upload/')) {
+                            u.pathname = u.pathname.replace('/upload/', '/upload/fl_attachment/');
+                        } else {
+                            const idx = u.pathname.indexOf('/upload');
+                            if (idx !== -1) {
+                                const rebuilt = u.pathname.slice(0, idx + 7) + '/fl_attachment' + u.pathname.slice(idx + 7);
+                                u.pathname = rebuilt;
+                            } else {
+                                console.error('[downloadMaterial] no se encontró /upload en la ruta, no se puede aplicar fl_attachment');
+                                res.status(502).json({ error: 'El recurso remoto no devolvió el archivo correcto' });
+                                cloudRes.resume();
+                                return;
+                            }
+                        }
+
+                        const attachmentUrl = u.href;
+                        cloudRes.resume();
+                        fetchAndPipe(attachmentUrl, redirectCount + 1);
+                        return;
+                    } catch (e) {
+                        console.error('[downloadMaterial] error construyendo attachment URL', e);
+                        res.status(502).json({ error: 'Error construyendo URL de descarga' });
+                        cloudRes.resume();
+                        return;
+                    }
+                }
+
+                // Copiar headers relevantes (evitar hop-by-hop) y forzar attachment
+                const filename = material.file_name || 'download';
+                const safeFilename = filename.replace(/\"/g, '');
+
+                Object.entries(cloudRes.headers).forEach(([key, value]) => {
+                    const lk = key.toLowerCase();
+                    if (lk === 'content-disposition') return;
+                    if (['connection', 'keep-alive', 'transfer-encoding', 'upgrade'].includes(lk)) return;
+                    try { res.setHeader(key, value); } catch (e) { /* ignore */ }
+                });
+
+                res.setHeader('Content-Type', material.mime_type || cloudRes.headers['content-type'] || 'application/octet-stream');
+                res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+                if (cloudRes.headers['content-length']) {
+                    res.setHeader('Content-Length', cloudRes.headers['content-length']);
+                }
+
+                if (cloudRes.statusCode) res.statusCode = cloudRes.statusCode;
+
+                cloudRes.pipe(res);
+            });
+
+            request.on('error', (err) => {
+                console.error('Error proxying file:', err);
+                if (!res.headersSent) res.status(500).json({ error: 'Error al descargar el archivo' });
+            });
+        };
+
+
+    } catch (error) {
+        console.error('Error en downloadMaterial:', error);
+        res.status(500).json({ error: 'Error al procesar la descarga' });
     }
 };
