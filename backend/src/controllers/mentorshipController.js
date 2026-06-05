@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import { sendMentorshipStatusEmail, sendMentorshipReprogramEmail } from '../services/emailService.js';
+import * as gamificationService from '../services/gamificationService.js';
 
 export const createMentorship = async (req, res) => {
     const { mentor_id, apprentice_id, subject_id, scheduled_date, objectives, modality, meeting_place, platform, estimated_duration } = req.body;
@@ -275,6 +276,15 @@ export const closeMentorship = async (req, res) => {
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Tutoría no encontrada o ya eliminada" });
+        }
+
+        // Si la tutoría se finalizó correctamente, delegar la lógica de recompensas al servicio
+        if (!isCancel && finalStatus === 'COMPLETADA') {
+            try {
+                await gamificationService.awardCompletionToMentor(id);
+            } catch (err) {
+                console.error('Error otorgando recompensas (service):', err.message);
+            }
         }
 
         res.json({ message: successMessage, status: finalStatus });

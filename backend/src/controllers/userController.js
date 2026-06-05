@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import cloudinary from '../config/cloudinary.js';
+import * as gamificationService from '../services/gamificationService.js';
 
 // Datos estáticos (Mocks) mientras se implementan las tablas de lógica de negocio
 const DEFAULT_SCORE = 4.5;
@@ -168,10 +169,19 @@ const enrichUserProfileData = async (user) => {
         console.error("Error calculating dynamic score and comments:", e.message);
     }
 
+    // Traer gamification desde el servicio
+    let gamification = { espe_coins: 0, xp: 0, level: 1, badges: [] };
+    try {
+        gamification = await gamificationService.getGamificationByUser(user.id);
+    } catch (e) {
+        console.error('Error leyendo gamification (service):', e.message);
+    }
+
     return {
         ...user,
         score,
         badges: DEFAULT_BADGES,
+        gamification,
         tutorias,
         comments
     };
